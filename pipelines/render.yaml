@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ig-lead-collector
+    runtime: python
+    repo: https://github.com/Maee127/your-repo
+    plan: free
+    envVars:
+      - key: META_APP_SECRET
+        sync: false
+      - key: WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: IG_BUSINESS_ACCOUNT_ID
+        sync: false
