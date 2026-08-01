@@ -3,7 +3,7 @@
 Initialize the database - equivalent to npm run init-db
 """
 import os
-from src.database import Database
+from pipelines.src.db import Database
 from src.config import DB_PATH
 
 if __name__ == "__main__":

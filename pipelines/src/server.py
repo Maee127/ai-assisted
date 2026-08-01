@@ -1,121 +1,98 @@
-import os
+"""
+Webhook receiver for Instagram comment and mention events.
+Verifies Meta's signature on every request before touching the database.
+"""
 import hashlib
 import hmac
-import json
-import logging
-from datetime import datetime
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import os
 
-from config import META_APP_SECRET, WEBHOOK_VERIFY_TOKEN, IG_BUSINESS_ACCOUNT_ID, PORT
-from database import Database
+from flask import Flask, request
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from db import insert_raw_comment, init_db
 
-# Initialize Flask app
+META_APP_SECRET = os.environ.get("META_APP_SECRET")
+WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN")
+IG_BUSINESS_ACCOUNT_ID = os.environ.get("IG_BUSINESS_ACCOUNT_ID")
+
+if not all([META_APP_SECRET, WEBHOOK_VERIFY_TOKEN, IG_BUSINESS_ACCOUNT_ID]):
+    raise SystemExit(
+        "Missing required env vars: META_APP_SECRET, WEBHOOK_VERIFY_TOKEN, "
+        "IG_BUSINESS_ACCOUNT_ID. Copy .env.example to .env and fill them in."
+    )
+
 app = Flask(__name__)
-CORS(app)
+init_db()
 
-# Initialize database
-db = Database(os.getenv("DB_PATH", "./data/leads.db"))
 
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return jsonify({
-        'service': 'Instagram Lead Collector Webhook',
-        'status': 'running',
-        'endpoints': {
-            '/health': 'GET - Health check',
-            '/webhook': 'GET - Webhook verification, POST - Webhook events'
-        }
-    })
+@app.get("/webhook")
+def verify_webhook():
+    """Handshake Meta performs once when you register the webhook URL."""
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
-def is_valid_signature(request) -> bool:
-    """Verify webhook signature"""
-    signature = request.headers.get('X-Hub-Signature-256')
-    if not signature or not request.data:
+    if mode == "subscribe" and token == WEBHOOK_VERIFY_TOKEN:
+        return challenge, 200
+    return "", 403
+
+
+def is_valid_signature(raw_body: bytes, signature_header: str) -> bool:
+    if not signature_header:
         return False
-    
     expected = "sha256=" + hmac.new(
-        META_APP_SECRET.encode(),
-        request.data,
-        hashlib.sha256
+        META_APP_SECRET.encode("utf-8"), raw_body, hashlib.sha256
     ).hexdigest()
-    
-    return hmac.compare_digest(signature, expected)
+    return hmac.compare_digest(signature_header, expected)
 
-def ingest_comment(value: dict, source_type: str):
-    """Process incoming comment"""
-    if not value or not value.get('text'):
-        return
-    
-    result = db.insert_raw_comment({
-        'username': value.get('from', {}).get('username'),
-        'comment_text': value.get('text', ''),
-        'source_page': value.get('media', {}).get('username'),
-        'post_url': value.get('media', {}).get('permalink'),
-        'ig_media_id': value.get('media', {}).get('id'),
-        'ig_media_owner_id': IG_BUSINESS_ACCOUNT_ID,
-        'source_type': source_type,
-        'comment_created_at': value.get('timestamp'),
-        'raw_payload': value,
-    })
-    
-    if result['inserted']:
-        logger.info(f"Ingested {source_type} comment (row {result['id']}) from @{value.get('from', {}).get('username')}")
-    else:
-        logger.info(f"Skipped duplicate comment from @{value.get('from', {}).get('username')}")
+
+@app.post("/webhook")
+def receive_webhook():
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    if not is_valid_signature(request.get_data(), signature):
+        return "", 403
+
+    body = request.get_json(silent=True) or {}
+    # Respond fast; Meta retries on timeout. Processing is cheap (SQLite
+    # insert) so it's fine to do inline here.
+    handle_webhook_body(body)
+    return "EVENT_RECEIVED", 200
+
 
 def handle_webhook_body(body: dict):
-    """Parse webhook payload"""
-    if body.get('object') != 'instagram':
+    if body.get("object") != "instagram":
         return
-    
-    for entry in body.get('entry', []):
-        for change in entry.get('changes', []):
-            field = change.get('field')
-            value = change.get('value', {})
-            
-            if field == 'comments':
-                ingest_comment(value, 'own_media')
-            elif field == 'mentions':
-                ingest_comment(value, 'mention')
+    for entry in body.get("entry", []):
+        for change in entry.get("changes", []):
+            field = change.get("field")
+            if field == "comments":
+                ingest_comment(change.get("value", {}), "own_media")
+            elif field == "mentions":
+                ingest_comment(change.get("value", {}), "mention")
 
-@app.route('/webhook', methods=['GET'])
-def webhook_verify():
-    """Webhook verification handshake"""
-    mode = request.args.get('hub.mode')
-    token = request.args.get('hub.verify_token')
-    challenge = request.args.get('hub.challenge')
-    
-    if mode == 'subscribe' and token == WEBHOOK_VERIFY_TOKEN:
-        logger.info("Webhook verified successfully")
-        return challenge, 200
-    
-    return 'Forbidden', 403
 
-@app.route('/webhook', methods=['POST'])
-def webhook_receive():
-    """Receive webhook events"""
-    if not is_valid_signature(request):
-        logger.warning("Rejected webhook: invalid signature")
-        return 'Forbidden', 403
-    
-    try:
-        handle_webhook_body(request.json)
-    except Exception as e:
-        logger.error(f"Error processing webhook payload: {e}", exc_info=True)
-    
-    return 'EVENT_RECEIVED', 200
+def ingest_comment(value: dict, source_type: str):
+    if not value or not value.get("text"):
+        return
+    media = value.get("media", {}) or {}
+    result = insert_raw_comment(
+        {
+            "username": (value.get("from") or {}).get("username"),
+            "comment_text": value.get("text"),
+            "source_page": media.get("username"),
+            "post_url": media.get("permalink"),
+            "ig_media_id": media.get("id"),
+            "ig_media_owner_id": IG_BUSINESS_ACCOUNT_ID,
+            "source_type": source_type,
+            "comment_created_at": value.get("timestamp"),
+            "raw_payload": value,
+        }
+    )
+    if result["inserted"]:
+        print(f"Ingested {source_type} comment (row {result['id']})")
+    else:
+        print("Skipped duplicate comment")
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
-if __name__ == '__main__':
-    logger.info(f"Webhook receiver listening on port {PORT}")
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 3000))
+    app.run(host="0.0.0.0", port=port)
