@@ -12,7 +12,6 @@ import os
 from datetime import datetime, timezone
 
 import anthropic
-
 from db import get_connection
 
 MODEL = "claude-sonnet-4-6"

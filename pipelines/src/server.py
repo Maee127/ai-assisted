@@ -6,9 +6,8 @@ import hashlib
 import hmac
 import os
 
+from db import init_db, insert_raw_comment
 from flask import Flask, request
-
-from db import insert_raw_comment, init_db
 
 META_APP_SECRET = os.environ.get("META_APP_SECRET")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN")
@@ -94,5 +93,5 @@ def ingest_comment(value: dict, source_type: str):
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3000))
+    port = int(os.environ.get("PORT", "3000"))
     app.run(host="0.0.0.0", port=port)

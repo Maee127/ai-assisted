@@ -9,8 +9,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from db import init_db, insert_raw_comment
 from classifier import run_rules_pass
+from db import init_db, insert_raw_comment
 from promote import run_promotion
 
 SAMPLE_COMMENTS = [
