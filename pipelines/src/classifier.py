@@ -6,10 +6,11 @@ Comments the rules classify with high confidence are marked 'validated'
 directly. Ambiguous ones are marked 'needs_review' so the AI pass
 (ai_classifier.py) only spends API calls on the comments that need it.
 """
+
 import re
 from datetime import datetime, timezone
 
-from db import get_connection
+from .db import get_connection
 
 # Keyword patterns per intent type. Deliberately simple and inspectable --
 # this is the layer a non-ML reviewer can audit line by line.
@@ -18,10 +19,18 @@ INTENT_PATTERNS = {
     "shipping": [r"\bship(ping)?\b", r"\bdeliver(y|s)?\b", r"\bversand\b"],
     "availability": [r"\bin stock\b", r"\bavailable\b", r"\bsold out\b"],
     "product_suitability": [
-        r"\bsuitable for\b", r"\bgood for\b", r"\bwork(s)? for\b",
-        r"\bsensitive skin\b", r"\boily skin\b", r"\bdry skin\b",
+        r"\bsuitable for\b",
+        r"\bgood for\b",
+        r"\bwork(s)? for\b",
+        r"\bsensitive skin\b",
+        r"\boily skin\b",
+        r"\bdry skin\b",
     ],
-    "purchase_location": [r"\bwhere (can|do) i buy\b", r"\bwhere to buy\b", r"\bwhich store\b"],
+    "purchase_location": [
+        r"\bwhere (can|do) i buy\b",
+        r"\bwhere to buy\b",
+        r"\bwhich store\b",
+    ],
 }
 
 QUESTION_MARKERS = ("?", "how", "where", "do you", "is this", "can i", "does this")
@@ -90,8 +99,16 @@ def run_rules_pass():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                row["id"], text, "en", int(is_q), int(bool(intent)),
-                intent, None, confidence, "rules", validation_status,
+                row["id"],
+                text,
+                "en",
+                int(is_q),
+                int(bool(intent)),
+                intent,
+                None,
+                confidence,
+                "rules",
+                validation_status,
                 datetime.now(timezone.utc).isoformat(),
             ),
         )

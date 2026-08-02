@@ -7,12 +7,15 @@ re-classifying everything with an LLM.
 Requires ANTHROPIC_API_KEY in the environment. Uses the Anthropic Python
 SDK (`pip install anthropic`).
 """
+
 import json
 import os
 from datetime import datetime, timezone
 
 import anthropic
-from db import get_connection
+from anthropic.types import TextBlock
+
+from .db import get_connection
 
 MODEL = "claude-sonnet-4-6"
 
@@ -33,7 +36,14 @@ def classify_with_ai(client: anthropic.Anthropic, text: str) -> dict:
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": text}],
     )
-    raw = response.content[0].text.strip()
+    text_block = next(
+        (block for block in response.content if isinstance(block, TextBlock)),
+        None,
+    )
+    if text_block is None:
+        raise ValueError("Anthropic response contained no text block.")
+
+    raw = text_block.text.strip()
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     return json.loads(raw)
 
@@ -73,8 +83,11 @@ def run_ai_pass():
             WHERE id = ?
             """,
             (
-                result.get("intent_type"), result.get("product_category"),
-                confidence, status, datetime.now(timezone.utc).isoformat(),
+                result.get("intent_type"),
+                result.get("product_category"),
+                confidence,
+                status,
+                datetime.now(timezone.utc).isoformat(),
                 row["id"],
             ),
         )

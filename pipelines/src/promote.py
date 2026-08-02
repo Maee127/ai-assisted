@@ -6,9 +6,10 @@ raw_comments for the fields the outreach/review layer actually needs.
 Idempotent: uses INSERT OR IGNORE keyed on raw_comment_id, so re-running
 this job (e.g. on a schedule) never creates duplicate leads.
 """
+
 from datetime import datetime, timezone
 
-from db import get_connection, retention_expiry
+from .db import get_connection, retention_expiry
 
 
 def run_promotion():
@@ -35,10 +36,17 @@ def run_promotion():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                row["raw_comment_id"], row["username"], row["comment_text"],
-                row["cleaned_text"], row["intent_type"], row["product_category"],
-                row["confidence_score"], row["source_page"], row["post_url"],
-                datetime.now(timezone.utc).isoformat(), retention_expiry(),
+                row["raw_comment_id"],
+                row["username"],
+                row["comment_text"],
+                row["cleaned_text"],
+                row["intent_type"],
+                row["product_category"],
+                row["confidence_score"],
+                row["source_page"],
+                row["post_url"],
+                datetime.now(timezone.utc).isoformat(),
+                retention_expiry(),
             ),
         )
         if cur.rowcount:

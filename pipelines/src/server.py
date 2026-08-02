@@ -2,12 +2,14 @@
 Webhook receiver for Instagram comment and mention events.
 Verifies Meta's signature on every request before touching the database.
 """
+
 import hashlib
 import hmac
 import os
 
-from db import init_db, insert_raw_comment
 from flask import Flask, request
+
+from .db import init_db, insert_raw_comment
 
 META_APP_SECRET = os.environ.get("META_APP_SECRET")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN")
@@ -38,9 +40,14 @@ def verify_webhook():
 def is_valid_signature(raw_body: bytes, signature_header: str) -> bool:
     if not signature_header:
         return False
-    expected = "sha256=" + hmac.new(
-        META_APP_SECRET.encode("utf-8"), raw_body, hashlib.sha256
-    ).hexdigest()
+
+    assert META_APP_SECRET is not None
+    expected = (
+        "sha256="
+        + hmac.new(
+            META_APP_SECRET.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+    )
     return hmac.compare_digest(signature_header, expected)
 
 

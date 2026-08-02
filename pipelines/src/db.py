@@ -4,6 +4,7 @@ Three-stage design: raw_comments (source of truth, never edited) ->
 processed_comments (classification results) -> validated_leads
 (only high-confidence records copied here for outreach review).
 """
+
 import hashlib
 import json
 import os
@@ -100,12 +101,14 @@ def init_db():
     conn.close()
 
 
-def normalize_username(username: str) -> str:
+def normalize_username(username: str | None) -> str:
     return (username or "").strip().lower()
 
 
-def hash_comment(username: str, post_id: str, text: str) -> str:
-    normalized = f"{normalize_username(username)}|{post_id or ''}|{(text or '').strip().lower()}"
+def hash_comment(username: str | None, post_id: str | None, text: str | None) -> str:
+    normalized = (
+        f"{normalize_username(username)}|{post_id or ''}|{(text or '').strip().lower()}"
+    )
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
