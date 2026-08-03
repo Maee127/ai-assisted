@@ -1,6 +1,7 @@
 """Processing-status transition rules."""
 
 from lead_pipeline.domain.enums import ProcessingStatus
+from lead_pipeline.domain.exceptions import InvalidStatusTransitionError
 
 _ALLOWED_TRANSITIONS: dict[ProcessingStatus, frozenset[ProcessingStatus]] = {
     ProcessingStatus.RECEIVED: frozenset(
@@ -41,3 +42,15 @@ def can_transition(
     """Return whether a processing-status transition is permitted."""
 
     return target in _ALLOWED_TRANSITIONS[current]
+
+
+def ensure_transition_allowed(
+    current: ProcessingStatus,
+    target: ProcessingStatus,
+) -> None:
+    """Raise when a processing-status transition is not permitted."""
+
+    if not can_transition(current, target):
+        raise InvalidStatusTransitionError(
+            f"transition from {current.value} to {target.value} is not permitted"
+        )
