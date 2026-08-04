@@ -119,3 +119,54 @@ class ClassificationRow(Base):
             "label",
         ),
     )
+
+
+class CustomerCareRow(Base):
+    """Persisted customer-care case kept separate from lead data."""
+
+    __tablename__ = "customer_care_cases"
+
+    case_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    source_event_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "interactions.event_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    summary: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    username: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_customer_care_client_user",
+            "client_id",
+            "user_id",
+        ),
+        Index(
+            "ix_customer_care_client_created",
+            "client_id",
+            "created_at",
+        ),
+    )

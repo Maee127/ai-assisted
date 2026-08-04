@@ -5,7 +5,11 @@ from typing import cast
 from sqlalchemy import DateTime, String, Table, Text
 
 from lead_pipeline.persistence.database import Base
-from lead_pipeline.persistence.models import ClassificationRow, InteractionRow
+from lead_pipeline.persistence.models import (
+    ClassificationRow,
+    CustomerCareRow,
+    InteractionRow,
+)
 
 
 def test_interaction_table_is_registered() -> None:
@@ -115,3 +119,46 @@ def test_classification_timestamp_is_timezone_aware() -> None:
     created_at_type = cast(DateTime, table.c.created_at.type)
 
     assert created_at_type.timezone is True
+
+
+def test_customer_care_table_is_registered() -> None:
+    assert "customer_care_cases" in Base.metadata.tables
+
+
+def test_customer_care_table_has_expected_columns() -> None:
+    table = cast(Table, CustomerCareRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "case_id",
+        "source_event_id",
+        "client_id",
+        "user_id",
+        "summary",
+        "created_at",
+        "username",
+    }
+
+
+def test_customer_care_event_foreign_key_cascades() -> None:
+    table = cast(Table, CustomerCareRow.__table__)
+    foreign_keys = list(table.c.source_event_id.foreign_keys)
+
+    assert len(foreign_keys) == 1
+    assert foreign_keys[0].target_fullname == "interactions.event_id"
+    assert foreign_keys[0].ondelete == "CASCADE"
+
+
+def test_customer_care_timestamp_is_timezone_aware() -> None:
+    table = cast(Table, CustomerCareRow.__table__)
+    created_at_type = cast(DateTime, table.c.created_at.type)
+
+    assert created_at_type.timezone is True
+
+
+def test_customer_care_indexes_are_defined() -> None:
+    table = cast(Table, CustomerCareRow.__table__)
+
+    assert {index.name for index in table.indexes} == {
+        "ix_customer_care_client_created",
+        "ix_customer_care_client_user",
+    }
