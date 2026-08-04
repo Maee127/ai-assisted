@@ -2,13 +2,14 @@
 
 from typing import cast
 
-from sqlalchemy import DateTime, String, Table, Text
+from sqlalchemy import DateTime, String, Table, Text, UniqueConstraint
 
 from lead_pipeline.persistence.database import Base
 from lead_pipeline.persistence.models import (
     ClassificationRow,
     CustomerCareRow,
     InteractionRow,
+    LeadProfileRow,
 )
 
 
@@ -161,4 +162,49 @@ def test_customer_care_indexes_are_defined() -> None:
     assert {index.name for index in table.indexes} == {
         "ix_customer_care_client_created",
         "ix_customer_care_client_user",
+    }
+
+
+def test_lead_profile_table_is_registered() -> None:
+    assert "lead_profiles" in Base.metadata.tables
+
+
+def test_lead_profile_table_has_expected_columns() -> None:
+    table = cast(Table, LeadProfileRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "lead_id",
+        "client_id",
+        "user_id",
+        "username",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_lead_profile_identity_is_unique_per_client() -> None:
+    table = cast(Table, LeadProfileRow.__table__)
+    unique_constraints = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    assert "lead_profile_identity" in unique_constraints
+
+
+def test_lead_profile_timestamps_are_timezone_aware() -> None:
+    table = cast(Table, LeadProfileRow.__table__)
+    created_at_type = cast(DateTime, table.c.created_at.type)
+    updated_at_type = cast(DateTime, table.c.updated_at.type)
+
+    assert created_at_type.timezone is True
+    assert updated_at_type.timezone is True
+
+
+def test_lead_profile_indexes_are_defined() -> None:
+    table = cast(Table, LeadProfileRow.__table__)
+
+    assert {index.name for index in table.indexes} == {
+        "ix_lead_profiles_client_updated",
     }

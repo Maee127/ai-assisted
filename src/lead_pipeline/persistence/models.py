@@ -9,6 +9,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -168,5 +169,49 @@ class CustomerCareRow(Base):
             "ix_customer_care_client_created",
             "client_id",
             "created_at",
+        ),
+    )
+
+
+class LeadProfileRow(Base):
+    """Persisted client-scoped lead profile."""
+
+    __tablename__ = "lead_profiles"
+
+    lead_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    username: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "client_id",
+            "user_id",
+            name="lead_profile_identity",
+        ),
+        Index(
+            "ix_lead_profiles_client_updated",
+            "client_id",
+            "updated_at",
         ),
     )
