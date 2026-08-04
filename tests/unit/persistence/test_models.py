@@ -5,7 +5,7 @@ from typing import cast
 from sqlalchemy import DateTime, String, Table, Text
 
 from lead_pipeline.persistence.database import Base
-from lead_pipeline.persistence.models import InteractionRow
+from lead_pipeline.persistence.models import ClassificationRow, InteractionRow
 
 
 def test_interaction_table_is_registered() -> None:
@@ -66,3 +66,52 @@ def test_interaction_indexes_are_defined() -> None:
         "ix_interactions_client_status",
         "ix_interactions_client_user",
     }
+
+
+def test_classification_table_is_registered() -> None:
+    assert "classifications" in Base.metadata.tables
+
+
+def test_classification_table_has_expected_columns() -> None:
+    table = cast(Table, ClassificationRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "classification_id",
+        "source_event_id",
+        "client_id",
+        "label",
+        "confidence",
+        "reason",
+        "model_name",
+        "model_version",
+        "prompt_version",
+        "created_at",
+    }
+
+
+def test_classification_event_foreign_key_cascades() -> None:
+    table = cast(Table, ClassificationRow.__table__)
+    foreign_keys = list(table.c.source_event_id.foreign_keys)
+
+    assert len(foreign_keys) == 1
+    assert foreign_keys[0].target_fullname == "interactions.event_id"
+    assert foreign_keys[0].ondelete == "CASCADE"
+
+
+def test_classification_constraints_and_indexes_are_defined() -> None:
+    table = cast(Table, ClassificationRow.__table__)
+
+    assert "ck_classifications_confidence_range" in {
+        constraint.name for constraint in table.constraints
+    }
+    assert {index.name for index in table.indexes} == {
+        "ix_classifications_client_event",
+        "ix_classifications_client_label",
+    }
+
+
+def test_classification_timestamp_is_timezone_aware() -> None:
+    table = cast(Table, ClassificationRow.__table__)
+    created_at_type = cast(DateTime, table.c.created_at.type)
+
+    assert created_at_type.timezone is True

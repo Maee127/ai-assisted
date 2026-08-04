@@ -2,7 +2,14 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lead_pipeline.persistence.database import Base
@@ -46,5 +53,69 @@ class InteractionRow(Base):
             "ix_interactions_client_status",
             "client_id",
             "processing_status",
+        ),
+    )
+
+
+class ClassificationRow(Base):
+    """Persisted classification result for an interaction."""
+
+    __tablename__ = "classifications"
+
+    classification_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    source_event_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "interactions.event_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    label: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    reason: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    model_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    model_version: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    prompt_version: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "confidence >= 0.0 AND confidence <= 1.0",
+            name="confidence_range",
+        ),
+        Index(
+            "ix_classifications_client_event",
+            "client_id",
+            "source_event_id",
+        ),
+        Index(
+            "ix_classifications_client_label",
+            "client_id",
+            "label",
         ),
     )
