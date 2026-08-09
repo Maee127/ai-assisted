@@ -9,6 +9,7 @@ from lead_pipeline.persistence.models import (
     ClassificationRow,
     CustomerCareRow,
     InteractionRow,
+    InterestEvidenceRow,
     LeadProfileRow,
 )
 
@@ -208,3 +209,59 @@ def test_lead_profile_indexes_are_defined() -> None:
     assert {index.name for index in table.indexes} == {
         "ix_lead_profiles_client_updated",
     }
+
+
+def test_interest_evidence_table_is_registered() -> None:
+    assert "interest_evidence" in Base.metadata.tables
+
+
+def test_interest_evidence_table_has_expected_columns() -> None:
+    table = cast(Table, InterestEvidenceRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "interest_id",
+        "lead_id",
+        "source_event_id",
+        "name",
+        "interest_type",
+        "confidence",
+        "model_name",
+        "model_version",
+        "catalogue_evidence",
+        "prompt_version",
+        "created_at",
+    }
+
+
+def test_interest_evidence_foreign_keys_cascade() -> None:
+    table = cast(Table, InterestEvidenceRow.__table__)
+
+    lead_foreign_keys = list(table.c.lead_id.foreign_keys)
+    event_foreign_keys = list(table.c.source_event_id.foreign_keys)
+
+    assert len(lead_foreign_keys) == 1
+    assert lead_foreign_keys[0].target_fullname == "lead_profiles.lead_id"
+    assert lead_foreign_keys[0].ondelete == "CASCADE"
+
+    assert len(event_foreign_keys) == 1
+    assert event_foreign_keys[0].target_fullname == "interactions.event_id"
+    assert event_foreign_keys[0].ondelete == "CASCADE"
+
+
+def test_interest_evidence_constraints_and_indexes_are_defined() -> None:
+    table = cast(Table, InterestEvidenceRow.__table__)
+
+    assert "ck_interest_evidence_confidence_range" in {
+        constraint.name for constraint in table.constraints
+    }
+    assert {index.name for index in table.indexes} == {
+        "ix_interest_evidence_event",
+        "ix_interest_evidence_lead_created",
+    }
+
+
+def test_interest_evidence_timestamp_is_timezone_aware() -> None:
+    table = cast(Table, InterestEvidenceRow.__table__)
+    created_at_type = cast(DateTime, table.c.created_at.type)
+
+    assert created_at_type.timezone is True

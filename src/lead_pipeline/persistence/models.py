@@ -215,3 +215,75 @@ class LeadProfileRow(Base):
             "updated_at",
         ),
     )
+
+
+class InterestEvidenceRow(Base):
+    """Persisted evidence for one lead interest."""
+
+    __tablename__ = "interest_evidence"
+
+    interest_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    lead_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "lead_profiles.lead_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    source_event_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "interactions.event_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    interest_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+    confidence: Mapped[float] = mapped_column(
+        nullable=False,
+    )
+    model_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    model_version: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    catalogue_evidence: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    prompt_version: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "confidence >= 0.0 AND confidence <= 1.0",
+            name="confidence_range",
+        ),
+        Index(
+            "ix_interest_evidence_lead_created",
+            "lead_id",
+            "created_at",
+        ),
+        Index(
+            "ix_interest_evidence_event",
+            "source_event_id",
+        ),
+    )
