@@ -287,3 +287,60 @@ class InterestEvidenceRow(Base):
             "source_event_id",
         ),
     )
+
+
+class UnresolvedRecordRow(Base):
+    """Persisted record for interactions unresolved after escalation."""
+
+    __tablename__ = "unresolved_records"
+
+    unresolved_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    source_event_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "interactions.event_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    primary_classification_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "classifications.classification_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    stronger_classification_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "classifications.classification_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_unresolved_client_created",
+            "client_id",
+            "created_at",
+        ),
+        Index(
+            "ix_unresolved_client_user",
+            "client_id",
+            "user_id",
+        ),
+    )

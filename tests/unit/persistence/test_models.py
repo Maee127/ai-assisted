@@ -11,6 +11,7 @@ from lead_pipeline.persistence.models import (
     InteractionRow,
     InterestEvidenceRow,
     LeadProfileRow,
+    UnresolvedRecordRow,
 )
 
 
@@ -265,3 +266,61 @@ def test_interest_evidence_timestamp_is_timezone_aware() -> None:
     created_at_type = cast(DateTime, table.c.created_at.type)
 
     assert created_at_type.timezone is True
+
+
+def test_unresolved_record_table_is_registered() -> None:
+    assert "unresolved_records" in Base.metadata.tables
+
+
+def test_unresolved_record_table_has_expected_columns() -> None:
+    table = cast(Table, UnresolvedRecordRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "unresolved_id",
+        "client_id",
+        "user_id",
+        "source_event_id",
+        "primary_classification_id",
+        "stronger_classification_id",
+        "created_at",
+    }
+
+
+def test_unresolved_record_foreign_keys_cascade() -> None:
+    table = cast(Table, UnresolvedRecordRow.__table__)
+
+    source_foreign_keys = list(table.c.source_event_id.foreign_keys)
+    primary_foreign_keys = list(table.c.primary_classification_id.foreign_keys)
+    stronger_foreign_keys = list(table.c.stronger_classification_id.foreign_keys)
+
+    assert len(source_foreign_keys) == 1
+    assert source_foreign_keys[0].target_fullname == "interactions.event_id"
+    assert source_foreign_keys[0].ondelete == "CASCADE"
+
+    assert len(primary_foreign_keys) == 1
+    assert (
+        primary_foreign_keys[0].target_fullname == "classifications.classification_id"
+    )
+    assert primary_foreign_keys[0].ondelete == "CASCADE"
+
+    assert len(stronger_foreign_keys) == 1
+    assert (
+        stronger_foreign_keys[0].target_fullname == "classifications.classification_id"
+    )
+    assert stronger_foreign_keys[0].ondelete == "CASCADE"
+
+
+def test_unresolved_record_timestamp_is_timezone_aware() -> None:
+    table = cast(Table, UnresolvedRecordRow.__table__)
+    created_at_type = cast(DateTime, table.c.created_at.type)
+
+    assert created_at_type.timezone is True
+
+
+def test_unresolved_record_indexes_are_defined() -> None:
+    table = cast(Table, UnresolvedRecordRow.__table__)
+
+    assert {index.name for index in table.indexes} == {
+        "ix_unresolved_client_created",
+        "ix_unresolved_client_user",
+    }
