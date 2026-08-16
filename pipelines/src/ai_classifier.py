@@ -10,7 +10,7 @@ SDK (`pip install anthropic`).
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import anthropic
 from anthropic.types import TextBlock
@@ -87,7 +87,7 @@ def run_ai_pass():
                 result.get("product_category"),
                 confidence,
                 status,
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 row["id"],
             ),
         )

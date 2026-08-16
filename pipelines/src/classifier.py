@@ -8,7 +8,7 @@ directly. Ambiguous ones are marked 'needs_review' so the AI pass
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .db import get_connection
 
@@ -109,7 +109,7 @@ def run_rules_pass():
                 confidence,
                 "rules",
                 validation_status,
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
             ),
         )
         conn.execute(

@@ -7,7 +7,7 @@ Idempotent: uses INSERT OR IGNORE keyed on raw_comment_id, so re-running
 this job (e.g. on a schedule) never creates duplicate leads.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .db import get_connection, retention_expiry
 
@@ -45,7 +45,7 @@ def run_promotion():
                 row["confidence_score"],
                 row["source_page"],
                 row["post_url"],
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 retention_expiry(),
             ),
         )

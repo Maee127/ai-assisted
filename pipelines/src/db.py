@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 DB_PATH = os.environ.get("DB_PATH", "./data/leads.db")
@@ -138,7 +138,7 @@ def insert_raw_comment(record: dict) -> dict:
                 record.get("ig_media_owner_id"),
                 record.get("source_type", "own_media"),
                 record.get("comment_created_at"),
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 json.dumps(record.get("raw_payload", {})),
             ),
         )
@@ -151,7 +151,7 @@ def insert_raw_comment(record: dict) -> dict:
 
 
 def retention_expiry() -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=RETENTION_DAYS)).isoformat()
+    return (datetime.now(UTC) + timedelta(days=RETENTION_DAYS)).isoformat()
 
 
 if __name__ == "__main__":
