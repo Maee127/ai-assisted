@@ -344,3 +344,55 @@ class UnresolvedRecordRow(Base):
             "user_id",
         ),
     )
+
+
+class ErasureRequestRow(Base):
+    """Persisted verified erasure request within one client boundary."""
+
+    __tablename__ = "erasure_requests"
+
+    request_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "verified_at >= requested_at",
+            name="verified_not_before_requested",
+        ),
+        CheckConstraint(
+            "completed_at IS NULL OR completed_at >= verified_at",
+            name="completed_not_before_verified",
+        ),
+        Index(
+            "ix_erasure_requests_client_user",
+            "client_id",
+            "user_id",
+        ),
+        Index(
+            "ix_erasure_requests_client_requested",
+            "client_id",
+            "requested_at",
+        ),
+    )

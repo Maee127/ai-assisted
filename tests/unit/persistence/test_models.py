@@ -8,6 +8,7 @@ from lead_pipeline.persistence.database import Base
 from lead_pipeline.persistence.models import (
     ClassificationRow,
     CustomerCareRow,
+    ErasureRequestRow,
     InteractionRow,
     InterestEvidenceRow,
     LeadProfileRow,
@@ -323,4 +324,58 @@ def test_unresolved_record_indexes_are_defined() -> None:
     assert {index.name for index in table.indexes} == {
         "ix_unresolved_client_created",
         "ix_unresolved_client_user",
+    }
+
+
+def test_erasure_request_table_is_registered() -> None:
+    assert "erasure_requests" in Base.metadata.tables
+
+
+def test_erasure_request_id_is_the_primary_key() -> None:
+    table = cast(Table, ErasureRequestRow.__table__)
+
+    assert [column.name for column in table.primary_key.columns] == ["request_id"]
+
+
+def test_erasure_request_table_has_expected_columns() -> None:
+    table = cast(Table, ErasureRequestRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "request_id",
+        "client_id",
+        "user_id",
+        "requested_at",
+        "verified_at",
+        "completed_at",
+    }
+
+
+def test_erasure_request_completion_is_optional() -> None:
+    table = cast(Table, ErasureRequestRow.__table__)
+
+    assert table.c.requested_at.nullable is False
+    assert table.c.verified_at.nullable is False
+    assert table.c.completed_at.nullable is True
+
+
+def test_erasure_request_timestamps_are_timezone_aware() -> None:
+    table = cast(Table, ErasureRequestRow.__table__)
+    requested_at_type = cast(DateTime, table.c.requested_at.type)
+    verified_at_type = cast(DateTime, table.c.verified_at.type)
+    completed_at_type = cast(DateTime, table.c.completed_at.type)
+
+    assert requested_at_type.timezone is True
+    assert verified_at_type.timezone is True
+    assert completed_at_type.timezone is True
+
+
+def test_erasure_request_constraints_and_indexes_are_defined() -> None:
+    table = cast(Table, ErasureRequestRow.__table__)
+    constraint_names = {constraint.name for constraint in table.constraints}
+
+    assert "ck_erasure_requests_verified_not_before_requested" in constraint_names
+    assert "ck_erasure_requests_completed_not_before_verified" in constraint_names
+    assert {index.name for index in table.indexes} == {
+        "ix_erasure_requests_client_requested",
+        "ix_erasure_requests_client_user",
     }
