@@ -151,7 +151,7 @@ Never commit the local `.env` file or real credentials.
 - [x] Root project documentation
 - [x] Python project and quality-tool configuration
 - [x] Automated baseline tests
-- [ ] Continuous integration
+- [x] Continuous integration
 - [x] Clean application architecture
 - [x] Tenant-aware persistence model
 - [ ] Authorized Meta webhook ingestion
