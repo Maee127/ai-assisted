@@ -286,6 +286,10 @@ Future Meta webhook adapters may handle:
 
 Meta payload structures must not become domain dependencies.
 
+The webhook adapter defaults to a 1 MiB request-body limit. Deployments may
+override this through validated configuration. Oversized bodies are rejected
+before JSON parsing and must not be logged or retained.
+
 ## ADR-020 — Keep processing providers replaceable
 
 **Status:** Accepted

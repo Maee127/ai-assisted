@@ -15,3 +15,15 @@ class InvalidCallbackVerificationError(WebhookVerificationError):
 
 class InvalidWebhookSignatureError(WebhookVerificationError):
     """Raised when a webhook request signature is invalid."""
+
+
+class WebhookPayloadError(IngestionError):
+    """Base exception for invalid webhook request bodies."""
+
+
+class InvalidWebhookPayloadError(WebhookPayloadError):
+    """Raised when a webhook body is not a valid JSON object."""
+
+
+class WebhookPayloadTooLargeError(WebhookPayloadError):
+    """Raised when a webhook body exceeds the configured limit."""

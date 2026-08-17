@@ -138,6 +138,7 @@ Required variables:
 | `META_APP_SECRET` | Validates signed Meta webhook requests |
 | `WEBHOOK_VERIFY_TOKEN` | Verifies the webhook callback |
 | `IG_BUSINESS_ACCOUNT_ID` | Identifies the authorized pilot account |
+| `MAX_WEBHOOK_PAYLOAD_BYTES` | Limits accepted webhook request bodies; defaults to 1 MiB |
 | `DB_PATH` | Sets the local database path |
 | `PORT` | Sets the application port |
 
