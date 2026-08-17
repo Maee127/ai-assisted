@@ -149,11 +149,11 @@ Never commit the local `.env` file or real credentials.
 - [x] Repository secret and generated-file cleanup
 - [x] Environment configuration template
 - [x] Root project documentation
-- [ ] Python project and quality-tool configuration
-- [ ] Automated baseline tests
+- [x] Python project and quality-tool configuration
+- [x] Automated baseline tests
 - [ ] Continuous integration
-- [ ] Clean application architecture
-- [ ] Tenant-aware persistence model
+- [x] Clean application architecture
+- [x] Tenant-aware persistence model
 - [ ] Authorized Meta webhook ingestion
 - [ ] Classification and uncertainty pipeline
 - [ ] Catalogue-grounded retrieval
