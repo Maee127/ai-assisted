@@ -290,6 +290,13 @@ The webhook adapter defaults to a 1 MiB request-body limit. Deployments may
 override this through validated configuration. Oversized bodies are rejected
 before JSON parsing and must not be logged or retained.
 
+Comment extraction requires Meta's stable Instagram-scoped commenter ID and
+never substitutes username as identity. If a verified live payload omits that
+ID, an authorized API enrichment step must supply it before domain mapping.
+
+A comment-level source timestamp is preferred when supplied. Otherwise, the
+adapter uses Meta's webhook notification time from the containing entry.
+
 ## ADR-020 — Keep processing providers replaceable
 
 **Status:** Accepted

@@ -27,3 +27,7 @@ class InvalidWebhookPayloadError(WebhookPayloadError):
 
 class WebhookPayloadTooLargeError(WebhookPayloadError):
     """Raised when a webhook body exceeds the configured limit."""
+
+
+class UnauthorizedWebhookAccountError(IngestionError):
+    """Raised when an event belongs to another Instagram account."""
