@@ -359,3 +359,27 @@ The following remain deferred to later milestones:
 * API endpoints.
 * Dashboard functionality.
 * Production deployment.
+
+## ADR-024 — Use Flask only at the HTTP transport boundary
+
+**Status:** Accepted
+
+The authorized Meta webhook endpoint uses Flask through an application factory
+with injected ingestion dependencies.
+
+Flask request objects and HTTP response handling remain inside
+`lead_pipeline.api`. The domain, application, ingestion, and persistence
+contracts do not depend on Flask.
+
+The adapter:
+
+* Returns the callback challenge only after verify-token validation.
+* Passes the exact raw delivery body to signature verification.
+* Maps expected verification and payload failures to safe empty responses.
+* Leaves unexpected infrastructure failures unhandled so the server returns an
+  error and Meta can retry.
+* Does not initialize a database or persist complete webhook payloads at module
+  import time.
+
+The earlier `pipelines/src/server.py` remains prototype code and is not the
+authoritative production webhook boundary.
