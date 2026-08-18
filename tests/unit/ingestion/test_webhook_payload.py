@@ -6,7 +6,28 @@ from lead_pipeline.ingestion.exceptions import (
     InvalidWebhookPayloadError,
     WebhookPayloadTooLargeError,
 )
-from lead_pipeline.ingestion.webhook_payload import parse_webhook_payload
+from lead_pipeline.ingestion.webhook_payload import (
+    parse_webhook_payload,
+    validate_webhook_payload_size,
+)
+
+
+def test_size_validation_does_not_parse_body() -> None:
+    validate_webhook_payload_size(
+        raw_body=b"not-json",
+        max_payload_bytes=1024,
+    )
+
+
+def test_standalone_size_validation_rejects_large_body() -> None:
+    with pytest.raises(
+        WebhookPayloadTooLargeError,
+        match="webhook payload exceeds configured size limit",
+    ):
+        validate_webhook_payload_size(
+            raw_body=b"12345",
+            max_payload_bytes=4,
+        )
 
 
 def test_valid_json_object_is_parsed() -> None:

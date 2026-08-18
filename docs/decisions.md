@@ -297,6 +297,12 @@ ID, an authorized API enrichment step must supply it before domain mapping.
 A comment-level source timestamp is preferred when supplied. Otherwise, the
 adapter uses Meta's webhook notification time from the containing entry.
 
+Webhook request processing follows this order: enforce the byte limit, verify
+the signature against the exact raw body, parse JSON, validate the authorized
+account, extract minimized interactions, and then call the application use case.
+All interactions are extracted before persistence begins so a malformed batch
+cannot create partial durable state.
+
 ## ADR-020 — Keep processing providers replaceable
 
 **Status:** Accepted

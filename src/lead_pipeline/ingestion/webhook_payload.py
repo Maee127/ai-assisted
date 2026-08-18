@@ -9,12 +9,12 @@ from lead_pipeline.ingestion.exceptions import (
 )
 
 
-def parse_webhook_payload(
+def validate_webhook_payload_size(
     *,
     raw_body: bytes,
     max_payload_bytes: int,
-) -> dict[str, object]:
-    """Return a verified-size JSON object without retaining raw content."""
+) -> None:
+    """Reject a request body that exceeds the configured byte limit."""
 
     if max_payload_bytes <= 0:
         raise ValueError("max_payload_bytes must be positive")
@@ -23,6 +23,19 @@ def parse_webhook_payload(
         raise WebhookPayloadTooLargeError(
             "webhook payload exceeds configured size limit"
         )
+
+
+def parse_webhook_payload(
+    *,
+    raw_body: bytes,
+    max_payload_bytes: int,
+) -> dict[str, object]:
+    """Return a verified-size JSON object without retaining raw content."""
+
+    validate_webhook_payload_size(
+        raw_body=raw_body,
+        max_payload_bytes=max_payload_bytes,
+    )
 
     try:
         parsed_payload: object = json.loads(raw_body)
