@@ -383,3 +383,21 @@ The adapter:
 
 The earlier `pipelines/src/server.py` remains prototype code and is not the
 authoritative production webhook boundary.
+
+## ADR-025 — Persist each webhook delivery atomically
+
+**Status:** Accepted
+
+Each accepted Meta webhook delivery is persisted within one SQLAlchemy
+transaction.
+
+`TransactionalMetaWebhookIngestor` owns the transaction boundary. It creates a
+request-scoped repository and application use case, while
+`SqlAlchemyInteractionRepository` only stages records and never commits or
+rolls back independently.
+
+All interactions are extracted before persistence begins. A successful delivery
+commits once. If any persistence operation fails, the exception leaves the
+transaction context and the complete delivery is rolled back.
+
+Stable Instagram event IDs remain the database identity and idempotency key.
