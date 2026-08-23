@@ -141,6 +141,11 @@ Required variables:
 | `MAX_WEBHOOK_PAYLOAD_BYTES` | Limits accepted webhook request bodies; defaults to 1 MiB |
 | `DB_PATH` | Sets the local database path |
 | `PORT` | Sets the application port |
+| `ANTHROPIC_API_KEY` | Authenticates Anthropic classification requests |
+| `PRIMARY_CLASSIFIER_MODEL` | Selects the economical primary classifier; defaults to Claude Haiku 4.5 |
+| `STRONGER_CLASSIFIER_MODEL` | Selects the stronger uncertainty classifier; defaults to Claude Sonnet 5 |
+| `CLASSIFICATION_PROMPT_VERSION` | Identifies the classification prompt version stored with results |
+| `CLASSIFICATION_MAX_TOKENS` | Limits generated tokens per classification; defaults to 256 |
 
 Never commit the local `.env` file or real credentials.
 

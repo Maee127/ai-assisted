@@ -311,6 +311,15 @@ Future classifiers, stronger models, language detectors, interest extractors, an
 
 The domain stores their outputs and versions but does not depend on a specific vendor or SDK.
 
+The MVP defaults to Claude Haiku 4.5 as the primary classifier and Claude
+Sonnet 5 as the stronger classifier. Every interaction enters the primary
+classifier without keyword pre-filtering. Only a primary `UNCERTAIN` result is
+sent to the stronger model.
+
+Model identifiers, prompt version, and output-token limits are environment
+configurable. Classification results retain model and prompt provenance so
+changing a provider or model does not erase how an earlier result was produced.
+
 ## ADR-021 — Keep privacy operations isolated
 
 **Status:** Accepted
