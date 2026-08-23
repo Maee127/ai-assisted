@@ -14,6 +14,7 @@ from lead_pipeline.domain.enums import (
     ProcessingStatus,
     SourceType,
 )
+from lead_pipeline.domain.exceptions import InvalidStatusTransitionError
 from lead_pipeline.domain.identifiers import (
     ClientId,
     InstagramEventId,
@@ -22,6 +23,7 @@ from lead_pipeline.domain.identifiers import (
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.domain.unresolved import UnresolvedRecord
+from lead_pipeline.persistence.exceptions import InteractionNotFoundError
 from lead_pipeline.persistence.models import (
     ClassificationRow,
     InteractionRow,
@@ -291,3 +293,62 @@ def test_unresolved_add_rejects_blank_classification_identifiers(
         )
 
     session.add.assert_not_called()
+
+
+def test_transition_status_applies_allowed_transition() -> None:
+    session = Mock(spec=Session)
+    row = build_row()
+    session.get.return_value = row
+    repository = SqlAlchemyInteractionRepository(session=session)
+
+    repository.transition_status(
+        event_id=InstagramEventId("event-1"),
+        target=ProcessingStatus.QUEUED,
+    )
+
+    session.get.assert_called_once_with(
+        InteractionRow,
+        "event-1",
+    )
+    assert row.processing_status == ProcessingStatus.QUEUED.value
+    session.add.assert_not_called()
+    session.commit.assert_not_called()
+    session.rollback.assert_not_called()
+
+
+def test_transition_status_rejects_invalid_transition() -> None:
+    session = Mock(spec=Session)
+    row = build_row()
+    session.get.return_value = row
+    repository = SqlAlchemyInteractionRepository(session=session)
+
+    with pytest.raises(
+        InvalidStatusTransitionError,
+        match="transition from RECEIVED to COMPLETED is not permitted",
+    ):
+        repository.transition_status(
+            event_id=InstagramEventId("event-1"),
+            target=ProcessingStatus.COMPLETED,
+        )
+
+    assert row.processing_status == ProcessingStatus.RECEIVED.value
+    session.commit.assert_not_called()
+    session.rollback.assert_not_called()
+
+
+def test_transition_status_rejects_missing_interaction() -> None:
+    session = Mock(spec=Session)
+    session.get.return_value = None
+    repository = SqlAlchemyInteractionRepository(session=session)
+
+    with pytest.raises(
+        InteractionNotFoundError,
+        match="interaction was not found",
+    ):
+        repository.transition_status(
+            event_id=InstagramEventId("missing-event"),
+            target=ProcessingStatus.QUEUED,
+        )
+
+    session.commit.assert_not_called()
+    session.rollback.assert_not_called()

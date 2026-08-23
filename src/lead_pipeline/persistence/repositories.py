@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Protocol
 
 from lead_pipeline.domain.classification import ClassificationResult
+from lead_pipeline.domain.enums import ProcessingStatus
 from lead_pipeline.domain.identifiers import ClientId, InstagramEventId
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.domain.unresolved import UnresolvedRecord
@@ -53,5 +54,19 @@ class UnresolvedRecordRepository(Protocol):
         stronger_classification_id: str,
     ) -> str:
         """Persist an unresolved record and return its identifier."""
+
+        ...
+
+
+class InteractionStatusRepository(Protocol):
+    """Persistence boundary for interaction lifecycle transitions."""
+
+    def transition_status(
+        self,
+        *,
+        event_id: InstagramEventId,
+        target: ProcessingStatus,
+    ) -> None:
+        """Apply one permitted processing-status transition."""
 
         ...

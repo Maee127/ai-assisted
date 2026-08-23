@@ -16,7 +16,9 @@ from lead_pipeline.domain.identifiers import (
     InstagramUserId,
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
+from lead_pipeline.domain.status import ensure_transition_allowed
 from lead_pipeline.domain.unresolved import UnresolvedRecord
+from lead_pipeline.persistence.exceptions import InteractionNotFoundError
 from lead_pipeline.persistence.models import (
     ClassificationRow,
     InteractionRow,
@@ -79,6 +81,26 @@ class SqlAlchemyInteractionRepository:
             status=ProcessingStatus(row.processing_status),
             username=row.username,
         )
+
+    def transition_status(
+        self,
+        *,
+        event_id: InstagramEventId,
+        target: ProcessingStatus,
+    ) -> None:
+        """Apply one validated lifecycle transition."""
+
+        row = self.session.get(
+            InteractionRow,
+            event_id.value,
+        )
+
+        if row is None:
+            raise InteractionNotFoundError("interaction was not found")
+
+        current = ProcessingStatus(row.processing_status)
+        ensure_transition_allowed(current, target)
+        row.processing_status = target.value
 
 
 @dataclass(slots=True)
