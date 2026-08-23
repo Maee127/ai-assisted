@@ -1,9 +1,13 @@
 """Concrete SQLAlchemy persistence adapters."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
+from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ProcessingStatus, SourceType
 from lead_pipeline.domain.identifiers import (
     ClientId,
@@ -12,7 +16,12 @@ from lead_pipeline.domain.identifiers import (
     InstagramUserId,
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
-from lead_pipeline.persistence.models import InteractionRow
+from lead_pipeline.domain.unresolved import UnresolvedRecord
+from lead_pipeline.persistence.models import (
+    ClassificationRow,
+    InteractionRow,
+    UnresolvedRecordRow,
+)
 
 
 @dataclass(slots=True)
@@ -70,3 +79,85 @@ class SqlAlchemyInteractionRepository:
             status=ProcessingStatus(row.processing_status),
             username=row.username,
         )
+
+
+@dataclass(slots=True)
+class SqlAlchemyClassificationRepository:
+    """Persist versioned classifications in an existing transaction."""
+
+    session: Session
+    id_factory: Callable[[], UUID] = uuid4
+
+    def add(
+        self,
+        *,
+        source_event_id: InstagramEventId,
+        client_id: ClientId,
+        result: ClassificationResult,
+        created_at: datetime,
+    ) -> str:
+        """Stage a classification and return its generated identifier."""
+
+        if created_at.tzinfo is None:
+            raise ValueError("created_at must be timezone-aware")
+
+        classification_id = str(self.id_factory())
+
+        self.session.add(
+            ClassificationRow(
+                classification_id=classification_id,
+                source_event_id=source_event_id.value,
+                client_id=client_id.value,
+                label=result.label.value,
+                confidence=result.confidence,
+                reason=result.reason,
+                model_name=result.model_name,
+                model_version=result.model_version,
+                prompt_version=result.prompt_version,
+                created_at=created_at,
+            )
+        )
+
+        return classification_id
+
+
+@dataclass(slots=True)
+class SqlAlchemyUnresolvedRecordRepository:
+    """Persist unresolved outcomes in an existing transaction."""
+
+    session: Session
+    id_factory: Callable[[], UUID] = uuid4
+
+    def add(
+        self,
+        *,
+        record: UnresolvedRecord,
+        primary_classification_id: str,
+        stronger_classification_id: str,
+    ) -> str:
+        """Stage an unresolved record and return its generated identifier."""
+
+        primary_id = primary_classification_id.strip()
+        stronger_id = stronger_classification_id.strip()
+
+        if not primary_id:
+            raise ValueError("primary_classification_id must not be empty")
+
+        if not stronger_id:
+            raise ValueError("stronger_classification_id must not be empty")
+
+        unresolved_id = str(self.id_factory())
+
+        self.session.add(
+            UnresolvedRecordRow(
+                unresolved_id=unresolved_id,
+                client_id=record.client_id.value,
+                user_id=record.user_id.value,
+                source_event_id=record.source_event_id.value,
+                primary_classification_id=primary_id,
+                stronger_classification_id=stronger_id,
+                created_at=record.created_at,
+            )
+        )
+
+        return unresolved_id
