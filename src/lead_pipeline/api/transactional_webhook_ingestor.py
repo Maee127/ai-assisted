@@ -1,12 +1,8 @@
 """Transactional composition for Meta webhook ingestion."""
 
 from collections.abc import Callable
-from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
-
-from sqlalchemy.orm import Session
 
 from lead_pipeline.application.ingest_interaction import IngestInteraction
 from lead_pipeline.domain.identifiers import ClientId
@@ -14,15 +10,9 @@ from lead_pipeline.ingestion.meta_webhook_ingestor import MetaWebhookIngestor
 from lead_pipeline.persistence.sqlalchemy_repositories import (
     SqlAlchemyInteractionRepository,
 )
-
-
-class SessionTransactionFactory(Protocol):
-    """Create request-scoped SQLAlchemy transaction contexts."""
-
-    def begin(self) -> AbstractContextManager[Session]:
-        """Return a context that commits or rolls back one transaction."""
-
-        ...
+from lead_pipeline.persistence.transactions import (
+    SessionTransactionFactory,
+)
 
 
 @dataclass(slots=True)
