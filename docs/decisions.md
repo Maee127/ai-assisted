@@ -448,3 +448,8 @@ Anthropic credentials and provider availability.
 Creating the worker runtime configures resources but does not classify an
 interaction. Provider calls occur only when the worker explicitly executes the
 classification runner.
+
+`ClassificationJob` loads a persisted interaction by its stable event ID within
+a short read transaction, closes that transaction, and only then invokes the
+classification runner. Missing interactions produce a privacy-safe error that
+does not disclose the requested identifier.

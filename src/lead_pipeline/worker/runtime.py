@@ -22,6 +22,7 @@ from lead_pipeline.processing.config import (
     get_primary_classifier_model,
     get_stronger_classifier_model,
 )
+from lead_pipeline.worker.classification_job import ClassificationJob
 
 
 def _utc_now() -> datetime:
@@ -37,6 +38,7 @@ class ClassificationRuntime:
     engine: Engine
     session_factory: sessionmaker[Session]
     runner: TransactionalInteractionClassifier
+    job: ClassificationJob
 
 
 def create_classification_runtime() -> ClassificationRuntime:
@@ -82,9 +84,14 @@ def create_classification_runtime() -> ClassificationRuntime:
         classifier=classifier,
         clock=_utc_now,
     )
+    job = ClassificationJob(
+        session_factory=session_factory,
+        runner=runner,
+    )
 
     return ClassificationRuntime(
         engine=engine,
         session_factory=session_factory,
         runner=runner,
+        job=job,
     )

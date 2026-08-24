@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from lead_pipeline.processing.anthropic_classifier import (
     AnthropicClassificationProvider,
 )
+from lead_pipeline.worker.classification_job import ClassificationJob
 from lead_pipeline.worker.runtime import create_classification_runtime
 
 
@@ -69,6 +70,9 @@ def test_create_runtime_composes_configured_classification_runner(
     assert runtime.engine is engine
     assert runtime.session_factory is configured_session_factory
     assert runtime.runner.session_factory is configured_session_factory
+    assert isinstance(runtime.job, ClassificationJob)
+    assert runtime.job.session_factory is configured_session_factory
+    assert runtime.job.runner is runtime.runner
 
     primary_provider = runtime.runner.classifier.primary_provider
     stronger_provider = runtime.runner.classifier.stronger_provider
