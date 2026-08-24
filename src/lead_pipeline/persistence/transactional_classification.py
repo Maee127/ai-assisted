@@ -34,7 +34,7 @@ class TransactionalClassificationResult:
 
 @dataclass(slots=True)
 class TransactionalInteractionClassifier:
-    """Classify outside a transaction, then persist atomically."""
+    """Advance lifecycle, classify outside a transaction, and persist atomically."""
 
     session_factory: SessionTransactionFactory
     classifier: ClassifyInteraction
@@ -46,31 +46,56 @@ class TransactionalInteractionClassifier:
     ) -> TransactionalClassificationResult:
         """Classify an interaction and atomically persist its outcome."""
 
-        outcome = self.classifier.execute(interaction)
-
         with self.session_factory.begin() as session:
             interaction_repository = SqlAlchemyInteractionRepository(
                 session=session,
             )
-            classification_repository = SqlAlchemyClassificationRepository(
-                session=session,
-            )
-            unresolved_repository = SqlAlchemyUnresolvedRecordRepository(
-                session=session,
-            )
-            persistence = PersistClassificationOutcome(
-                classification_repository=classification_repository,
-                unresolved_repository=unresolved_repository,
-                clock=self.clock,
-            )
-            receipt = persistence.execute(
-                interaction=interaction,
-                outcome=outcome,
+            interaction_repository.transition_status(
+                event_id=interaction.event_id,
+                target=ProcessingStatus.QUEUED,
             )
             interaction_repository.transition_status(
                 event_id=interaction.event_id,
-                target=ProcessingStatus.COMPLETED,
+                target=ProcessingStatus.PROCESSING,
             )
+
+        try:
+            outcome = self.classifier.execute(interaction)
+
+            with self.session_factory.begin() as session:
+                interaction_repository = SqlAlchemyInteractionRepository(
+                    session=session,
+                )
+                classification_repository = SqlAlchemyClassificationRepository(
+                    session=session,
+                )
+                unresolved_repository = SqlAlchemyUnresolvedRecordRepository(
+                    session=session,
+                )
+                persistence = PersistClassificationOutcome(
+                    classification_repository=classification_repository,
+                    unresolved_repository=unresolved_repository,
+                    clock=self.clock,
+                )
+                receipt = persistence.execute(
+                    interaction=interaction,
+                    outcome=outcome,
+                )
+                interaction_repository.transition_status(
+                    event_id=interaction.event_id,
+                    target=ProcessingStatus.COMPLETED,
+                )
+        except Exception:
+            with self.session_factory.begin() as session:
+                interaction_repository = SqlAlchemyInteractionRepository(
+                    session=session,
+                )
+                interaction_repository.transition_status(
+                    event_id=interaction.event_id,
+                    target=ProcessingStatus.RETRYABLE_FAILURE,
+                )
+
+            raise
 
         return TransactionalClassificationResult(
             outcome=outcome,

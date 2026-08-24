@@ -410,3 +410,24 @@ commits once. If any persistence operation fails, the exception leaves the
 transaction context and the complete delivery is rolled back.
 
 Stable Instagram event IDs remain the database identity and idempotency key.
+
+## ADR-026 — Keep provider inference outside lifecycle transactions
+
+**Status:** Accepted
+
+Classification provider calls must run without an open database transaction.
+Before inference begins, one short transaction advances a fresh or retryable
+interaction through `QUEUED` to `PROCESSING`.
+
+A successful classification uses a separate transaction to persist the primary
+result, optional stronger result, optional unresolved record, and the transition
+to `COMPLETED`. These writes commit or roll back together.
+
+If provider inference or result persistence raises an exception, the original
+exception is propagated after a separate transaction moves the interaction from
+`PROCESSING` to `RETRYABLE_FAILURE`. A later attempt may re-enter through
+`QUEUED`.
+
+Failures while entering the processing lifecycle are not automatically
+reclassified as processing failures. Transition rules remain enforced by the
+domain, and `PERMANENT_FAILURE` requires an explicit non-retryable decision.

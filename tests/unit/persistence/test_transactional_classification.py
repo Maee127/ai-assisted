@@ -135,10 +135,19 @@ def build_runner(
     )
 
 
-def test_provider_call_finishes_before_transaction_begins() -> None:
+@pytest.mark.parametrize(
+    "initial_status",
+    [
+        ProcessingStatus.RECEIVED,
+        ProcessingStatus.RETRYABLE_FAILURE,
+    ],
+)
+def test_provider_calls_run_between_lifecycle_transactions(
+    initial_status: ProcessingStatus,
+) -> None:
     session_mock = Mock(spec=Session)
     processing_row = Mock(spec=InteractionRow)
-    processing_row.processing_status = ProcessingStatus.PROCESSING.value
+    processing_row.processing_status = initial_status.value
     session_mock.get.return_value = processing_row
     transaction_factory = RecordingTransactionFactory(
         session=cast(Session, session_mock),
@@ -164,8 +173,8 @@ def test_provider_call_finishes_before_transaction_begins() -> None:
 
     assert primary_provider.transaction_states == [False]
     assert stronger_provider.calls == []
-    assert transaction_factory.entries == 1
-    assert transaction_factory.exits == 1
+    assert transaction_factory.entries == 2
+    assert transaction_factory.exits == 2
     assert transaction_factory.exception_types == []
     assert session_mock.add.call_count == 1
     assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
@@ -176,7 +185,7 @@ def test_provider_call_finishes_before_transaction_begins() -> None:
 def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
     session_mock = Mock(spec=Session)
     processing_row = Mock(spec=InteractionRow)
-    processing_row.processing_status = ProcessingStatus.PROCESSING.value
+    processing_row.processing_status = ProcessingStatus.RECEIVED.value
     session_mock.get.return_value = processing_row
 
     transaction_factory = RecordingTransactionFactory(
@@ -206,8 +215,8 @@ def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
 
     assert primary_provider.transaction_states == [False]
     assert stronger_provider.transaction_states == [False]
-    assert transaction_factory.entries == 1
-    assert transaction_factory.exits == 1
+    assert transaction_factory.entries == 2
+    assert transaction_factory.exits == 2
     assert session_mock.add.call_count == 3
     assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
 
@@ -229,8 +238,11 @@ def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
     assert result.receipt.unresolved_id == unresolved_row.unresolved_id
 
 
-def test_provider_failure_does_not_open_transaction() -> None:
+def test_provider_failure_marks_interaction_retryable() -> None:
     session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.RECEIVED.value
+    session_mock.get.return_value = processing_row
     transaction_factory = RecordingTransactionFactory(
         session=cast(Session, session_mock),
     )
@@ -252,13 +264,21 @@ def test_provider_failure_does_not_open_transaction() -> None:
     with pytest.raises(RuntimeError, match="provider unavailable"):
         runner.execute(build_interaction())
 
-    assert transaction_factory.entries == 0
-    assert transaction_factory.exits == 0
+    assert primary_provider.transaction_states == [False]
+    assert transaction_factory.entries == 2
+    assert transaction_factory.exits == 2
+    assert transaction_factory.exception_types == []
+    assert processing_row.processing_status == (
+        ProcessingStatus.RETRYABLE_FAILURE.value
+    )
     session_mock.add.assert_not_called()
 
 
-def test_persistence_failure_exits_transaction_with_error() -> None:
+def test_persistence_failure_marks_interaction_retryable() -> None:
     session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.RECEIVED.value
+    session_mock.get.return_value = processing_row
     session_mock.add.side_effect = RuntimeError("database unavailable")
     transaction_factory = RecordingTransactionFactory(
         session=cast(Session, session_mock),
@@ -284,6 +304,9 @@ def test_persistence_failure_exits_transaction_with_error() -> None:
         runner.execute(build_interaction())
 
     assert primary_provider.transaction_states == [False]
-    assert transaction_factory.entries == 1
-    assert transaction_factory.exits == 1
+    assert transaction_factory.entries == 3
+    assert transaction_factory.exits == 3
     assert transaction_factory.exception_types == [RuntimeError]
+    assert processing_row.processing_status == (
+        ProcessingStatus.RETRYABLE_FAILURE.value
+    )
