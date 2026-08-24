@@ -431,3 +431,20 @@ exception is propagated after a separate transaction moves the interaction from
 Failures while entering the processing lifecycle are not automatically
 reclassified as processing failures. Transition rules remain enforced by the
 domain, and `PERMANENT_FAILURE` requires an explicit non-retryable decision.
+
+## ADR-027 — Compose classification independently of webhook delivery
+
+**Status:** Accepted
+
+Classification workers use a dedicated composition root in
+`lead_pipeline.worker`. It creates the SQLAlchemy resources, shared Anthropic
+client, configured primary and stronger providers, classification use case, and
+retry-safe transactional runner.
+
+The webhook application does not import or initialize this runtime. Receiving
+and safely persisting an authorized webhook delivery must remain independent of
+Anthropic credentials and provider availability.
+
+Creating the worker runtime configures resources but does not classify an
+interaction. Provider calls occur only when the worker explicitly executes the
+classification runner.
