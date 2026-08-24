@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from lead_pipeline.application.classify_interaction import ClassifyInteraction
 from lead_pipeline.domain.classification import ClassificationResult
-from lead_pipeline.domain.enums import ClassificationLabel, SourceType
+from lead_pipeline.domain.enums import ClassificationLabel, ProcessingStatus, SourceType
 from lead_pipeline.domain.identifiers import (
     ClientId,
     InstagramEventId,
@@ -22,6 +22,7 @@ from lead_pipeline.domain.identifiers import (
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.persistence.models import (
     ClassificationRow,
+    InteractionRow,
     UnresolvedRecordRow,
 )
 from lead_pipeline.persistence.transactional_classification import (
@@ -136,6 +137,9 @@ def build_runner(
 
 def test_provider_call_finishes_before_transaction_begins() -> None:
     session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.PROCESSING.value
+    session_mock.get.return_value = processing_row
     transaction_factory = RecordingTransactionFactory(
         session=cast(Session, session_mock),
     )
@@ -164,12 +168,17 @@ def test_provider_call_finishes_before_transaction_begins() -> None:
     assert transaction_factory.exits == 1
     assert transaction_factory.exception_types == []
     assert session_mock.add.call_count == 1
+    assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
     assert result.outcome.final_result.label is ClassificationLabel.SALES_LEAD
     assert result.receipt.primary_classification_id
 
 
 def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
     session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.PROCESSING.value
+    session_mock.get.return_value = processing_row
+
     transaction_factory = RecordingTransactionFactory(
         session=cast(Session, session_mock),
     )
@@ -200,6 +209,7 @@ def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
     assert transaction_factory.entries == 1
     assert transaction_factory.exits == 1
     assert session_mock.add.call_count == 3
+    assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
 
     primary_row = cast(
         ClassificationRow,

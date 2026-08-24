@@ -12,9 +12,11 @@ from lead_pipeline.application.persist_classification_outcome import (
     ClassificationPersistenceReceipt,
     PersistClassificationOutcome,
 )
+from lead_pipeline.domain.enums import ProcessingStatus
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.persistence.sqlalchemy_repositories import (
     SqlAlchemyClassificationRepository,
+    SqlAlchemyInteractionRepository,
     SqlAlchemyUnresolvedRecordRepository,
 )
 from lead_pipeline.persistence.transactions import (
@@ -47,6 +49,9 @@ class TransactionalInteractionClassifier:
         outcome = self.classifier.execute(interaction)
 
         with self.session_factory.begin() as session:
+            interaction_repository = SqlAlchemyInteractionRepository(
+                session=session,
+            )
             classification_repository = SqlAlchemyClassificationRepository(
                 session=session,
             )
@@ -61,6 +66,10 @@ class TransactionalInteractionClassifier:
             receipt = persistence.execute(
                 interaction=interaction,
                 outcome=outcome,
+            )
+            interaction_repository.transition_status(
+                event_id=interaction.event_id,
+                target=ProcessingStatus.COMPLETED,
             )
 
         return TransactionalClassificationResult(
