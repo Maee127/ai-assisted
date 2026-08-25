@@ -12,14 +12,18 @@ dependencies = [
     "alembic>=1.18,<2.0",
     "psycopg[binary]>=3.2,<4.0",
     "Flask>=3.0,<4.0",
+    "anthropic>=1.0,<2.0",
+    "pydantic>=2.12,<3.0",
 ]
+
+[project.scripts]
+lead-pipeline-classify = "lead_pipeline.worker.cli:main"
 
 [project.optional-dependencies]
 dev = [
     "mypy>=2.3,<3.0",
     "pytest>=9.1,<10.0",
     "ruff>=0.16,<0.17",
-    "anthropic>=1.0,<2.0",
 ]
 
 [tool.setuptools]

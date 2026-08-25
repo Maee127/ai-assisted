@@ -149,6 +149,34 @@ Required variables:
 
 Never commit the local `.env` file or real credentials.
 
+## Classify one persisted interaction
+
+After installing the project, applying migrations, and exporting the required
+database and Anthropic environment variables, classify one interaction by its
+stable event ID:
+
+```bash
+lead-pipeline-classify example-event-id
+```
+
+The command loads the minimized interaction, executes primary classification,
+escalates explicit uncertainty when necessary, and persists the outcome through
+the retry-safe lifecycle.
+
+It prints only privacy-safe outcome metadata:
+
+```json
+{
+  "is_unresolved": false,
+  "label": "SALES_LEAD",
+  "status": "COMPLETED",
+  "was_escalated": false
+}
+```
+
+Comment text, username, and event ID are not printed.
+
+
 ## Current implementation status
 
 - [x] Milestone 0: MVP scope and acceptance criteria
@@ -160,7 +188,7 @@ Never commit the local `.env` file or real credentials.
 - [x] Continuous integration
 - [x] Clean application architecture
 - [x] Tenant-aware persistence model
-- [ ] Authorized Meta webhook ingestion
+- [x] Authorized Meta webhook ingestion
 - [ ] Classification and uncertainty pipeline
 - [ ] Catalogue-grounded retrieval
 - [ ] Evaluation against the 90% precision target
