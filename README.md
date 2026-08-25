@@ -189,7 +189,7 @@ Comment text, username, and event ID are not printed.
 - [x] Clean application architecture
 - [x] Tenant-aware persistence model
 - [x] Authorized Meta webhook ingestion
-- [ ] Classification and uncertainty pipeline
+- [x] Classification and uncertainty pipeline
 - [ ] Catalogue-grounded retrieval
 - [ ] Evaluation against the 90% precision target
 - [ ] Retention and erasure automation
