@@ -27,6 +27,20 @@ class ClientId:
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogueItemId:
+    """Stable identifier for one client catalogue item."""
+
+    value: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "value",
+            _validate_identifier(self.value, "catalogue_item_id"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class InstagramUserId:
     """Stable Instagram user or account identifier."""
 
