@@ -3,6 +3,7 @@
 import pytest
 
 from lead_pipeline.domain.identifiers import (
+    CatalogueItemId,
     ClientId,
     InstagramEventId,
     InstagramMediaId,
@@ -17,11 +18,16 @@ from lead_pipeline.domain.identifiers import (
         (InstagramUserId, "user-456"),
         (InstagramEventId, "event-789"),
         (InstagramMediaId, "media-012"),
+        (CatalogueItemId, "catalogue-item-123"),
     ],
 )
 def test_identifier_accepts_non_empty_value(
     identifier_type: type[
-        ClientId | InstagramUserId | InstagramEventId | InstagramMediaId
+        CatalogueItemId
+        | ClientId
+        | InstagramUserId
+        | InstagramEventId
+        | InstagramMediaId
     ],
     value: str,
 ) -> None:
@@ -33,6 +39,7 @@ def test_identifier_accepts_non_empty_value(
 @pytest.mark.parametrize(
     "identifier_type",
     [
+        CatalogueItemId,
         ClientId,
         InstagramUserId,
         InstagramEventId,
@@ -42,7 +49,11 @@ def test_identifier_accepts_non_empty_value(
 @pytest.mark.parametrize("value", ["", "   ", "\t", "\n"])
 def test_identifier_rejects_blank_value(
     identifier_type: type[
-        ClientId | InstagramUserId | InstagramEventId | InstagramMediaId
+        CatalogueItemId
+        | ClientId
+        | InstagramUserId
+        | InstagramEventId
+        | InstagramMediaId
     ],
     value: str,
 ) -> None:
