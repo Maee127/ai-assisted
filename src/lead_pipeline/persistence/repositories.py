@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Protocol
 
+from lead_pipeline.domain.catalogue import CatalogueItem
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ProcessingStatus
 from lead_pipeline.domain.identifiers import ClientId, InstagramEventId
@@ -68,5 +69,25 @@ class InteractionStatusRepository(Protocol):
         target: ProcessingStatus,
     ) -> None:
         """Apply one permitted processing-status transition."""
+
+        ...
+
+
+class CatalogueRepository(Protocol):
+    """Persistence and retrieval boundary for client-owned catalogues."""
+
+    def upsert(self, item: CatalogueItem) -> None:
+        """Insert or update one item inside its client boundary."""
+
+        ...
+
+    def search(
+        self,
+        *,
+        client_id: ClientId,
+        query: str,
+        limit: int = 5,
+    ) -> tuple[CatalogueItem, ...]:
+        """Return relevant items only from the specified client catalogue."""
 
         ...

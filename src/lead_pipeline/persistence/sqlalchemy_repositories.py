@@ -1,15 +1,19 @@
 """Concrete SQLAlchemy persistence adapters."""
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
+from lead_pipeline.domain.catalogue import CatalogueItem
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ProcessingStatus, SourceType
 from lead_pipeline.domain.identifiers import (
+    CatalogueItemId,
     ClientId,
     InstagramEventId,
     InstagramMediaId,
@@ -20,10 +24,117 @@ from lead_pipeline.domain.status import ensure_transition_allowed
 from lead_pipeline.domain.unresolved import UnresolvedRecord
 from lead_pipeline.persistence.exceptions import InteractionNotFoundError
 from lead_pipeline.persistence.models import (
+    CatalogueItemRow,
     ClassificationRow,
     InteractionRow,
     UnresolvedRecordRow,
 )
+
+_CATALOGUE_TERM_PATTERN = re.compile(r"[a-z0-9]+")
+
+
+def _catalogue_search_terms(query: str) -> tuple[str, ...]:
+    normalized_query = query.strip().casefold()
+
+    if not normalized_query:
+        raise ValueError("query must not be empty")
+
+    terms = tuple(dict.fromkeys(_CATALOGUE_TERM_PATTERN.findall(normalized_query)))
+
+    if not terms:
+        raise ValueError("query must contain searchable text")
+
+    return terms
+
+
+@dataclass(slots=True)
+class SqlAlchemyCatalogueRepository:
+    """Persist and retrieve items within one client catalogue."""
+
+    session: Session
+
+    def upsert(self, item: CatalogueItem) -> None:
+        """Stage an insert or update without owning the transaction."""
+
+        identity = (
+            item.client_id.value,
+            item.catalogue_item_id.value,
+        )
+        row = self.session.get(CatalogueItemRow, identity)
+
+        if row is None:
+            self.session.add(
+                CatalogueItemRow(
+                    client_id=item.client_id.value,
+                    catalogue_item_id=item.catalogue_item_id.value,
+                    name=item.name,
+                    category=item.category,
+                    description=item.description,
+                )
+            )
+            return
+
+        row.name = item.name
+        row.category = item.category
+        row.description = item.description
+
+    def search(
+        self,
+        *,
+        client_id: ClientId,
+        query: str,
+        limit: int = 5,
+    ) -> tuple[CatalogueItem, ...]:
+        """Return ranked lexical matches from only one client."""
+
+        if not 1 <= limit <= 20:
+            raise ValueError("limit must be between 1 and 20")
+
+        terms = _catalogue_search_terms(query)
+        patterns = tuple(f"%{term}%" for term in terms)
+
+        name_match = or_(
+            *(CatalogueItemRow.name.ilike(pattern) for pattern in patterns)
+        )
+        category_match = or_(
+            *(CatalogueItemRow.category.ilike(pattern) for pattern in patterns)
+        )
+        description_match = or_(
+            *(CatalogueItemRow.description.ilike(pattern) for pattern in patterns)
+        )
+
+        relevance = (
+            case((name_match, 3), else_=0)
+            + case((category_match, 2), else_=0)
+            + case((description_match, 1), else_=0)
+        )
+
+        statement = (
+            select(CatalogueItemRow)
+            .where(
+                CatalogueItemRow.client_id == client_id.value,
+                or_(name_match, category_match, description_match),
+            )
+            .order_by(
+                relevance.desc(),
+                CatalogueItemRow.name.asc(),
+                CatalogueItemRow.catalogue_item_id.asc(),
+            )
+            .limit(limit)
+        )
+
+        rows = self.session.scalars(statement).all()
+
+        return tuple(
+            CatalogueItem(
+                catalogue_item_id=CatalogueItemId(row.catalogue_item_id),
+                client_id=ClientId(row.client_id),
+                name=row.name,
+                category=row.category,
+                description=row.description,
+            )
+            for row in rows
+        )
 
 
 @dataclass(slots=True)
