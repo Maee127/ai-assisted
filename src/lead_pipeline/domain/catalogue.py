@@ -32,3 +32,19 @@ class CatalogueItem:
         object.__setattr__(self, "name", normalized_name)
         object.__setattr__(self, "category", normalized_category)
         object.__setattr__(self, "description", normalized_description)
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogueContext:
+    """Immutable catalogue evidence for one client classification."""
+
+    client_id: ClientId
+    items: tuple[CatalogueItem, ...] = ()
+
+    def __post_init__(self) -> None:
+        normalized_items = tuple(self.items)
+
+        if any(item.client_id != self.client_id for item in normalized_items):
+            raise ValueError("catalogue items must belong to the context client")
+
+        object.__setattr__(self, "items", normalized_items)

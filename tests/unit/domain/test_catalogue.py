@@ -2,7 +2,7 @@
 
 import pytest
 
-from lead_pipeline.domain.catalogue import CatalogueItem
+from lead_pipeline.domain.catalogue import CatalogueContext, CatalogueItem
 from lead_pipeline.domain.identifiers import CatalogueItemId, ClientId
 
 
@@ -55,3 +55,46 @@ def test_catalogue_item_is_immutable() -> None:
 
     with pytest.raises(AttributeError):
         item.name = "Changed"  # type: ignore[misc]
+
+
+def test_catalogue_context_accepts_matching_client_items() -> None:
+    item = build_item()
+
+    context = CatalogueContext(
+        client_id=ClientId("client-1"),
+        items=(item,),
+    )
+
+    assert context.items == (item,)
+
+
+def test_catalogue_context_allows_empty_catalogue() -> None:
+    context = CatalogueContext(
+        client_id=ClientId("client-1"),
+    )
+
+    assert context.items == ()
+
+
+def test_catalogue_context_rejects_cross_client_item() -> None:
+    item = build_item(
+        client_id=ClientId("client-2"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="catalogue items must belong to the context client",
+    ):
+        CatalogueContext(
+            client_id=ClientId("client-1"),
+            items=(item,),
+        )
+
+
+def test_catalogue_context_is_immutable() -> None:
+    context = CatalogueContext(
+        client_id=ClientId("client-1"),
+    )
+
+    with pytest.raises(AttributeError):
+        context.items = ()  # type: ignore[misc]
