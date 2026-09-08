@@ -6,6 +6,7 @@ from sqlalchemy import DateTime, String, Table, Text, UniqueConstraint
 
 from lead_pipeline.persistence.database import Base
 from lead_pipeline.persistence.models import (
+    CatalogueItemRow,
     ClassificationRow,
     CustomerCareRow,
     ErasureRequestRow,
@@ -378,4 +379,47 @@ def test_erasure_request_constraints_and_indexes_are_defined() -> None:
     assert {index.name for index in table.indexes} == {
         "ix_erasure_requests_client_requested",
         "ix_erasure_requests_client_user",
+    }
+
+
+def test_catalogue_items_table_is_registered() -> None:
+    assert "catalogue_items" in Base.metadata.tables
+
+
+def test_catalogue_items_table_has_expected_columns() -> None:
+    table = cast(Table, CatalogueItemRow.__table__)
+
+    assert set(table.columns.keys()) == {
+        "client_id",
+        "catalogue_item_id",
+        "name",
+        "category",
+        "description",
+    }
+
+
+def test_catalogue_item_identity_is_scoped_to_client() -> None:
+    table = cast(Table, CatalogueItemRow.__table__)
+
+    assert [column.name for column in table.primary_key.columns] == [
+        "client_id",
+        "catalogue_item_id",
+    ]
+
+
+def test_catalogue_item_column_types() -> None:
+    table = cast(Table, CatalogueItemRow.__table__)
+
+    assert isinstance(table.c.client_id.type, String)
+    assert isinstance(table.c.catalogue_item_id.type, String)
+    assert isinstance(table.c.name.type, String)
+    assert isinstance(table.c.category.type, String)
+    assert isinstance(table.c.description.type, Text)
+
+
+def test_catalogue_item_indexes_are_defined() -> None:
+    table = cast(Table, CatalogueItemRow.__table__)
+
+    assert {index.name for index in table.indexes} == {
+        "ix_catalogue_items_client_category",
     }
