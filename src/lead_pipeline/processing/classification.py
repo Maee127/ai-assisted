@@ -2,6 +2,7 @@
 
 from typing import Protocol
 
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.interactions import InstagramInteraction
 
@@ -12,7 +13,9 @@ class ClassificationProvider(Protocol):
     def classify(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
     ) -> ClassificationResult:
         """Return one versioned top-level classification result."""
 
-        ...
+        raise NotImplementedError

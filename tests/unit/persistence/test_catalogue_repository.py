@@ -119,30 +119,20 @@ def test_search_statement_contains_client_boundary() -> None:
     assert "client-1" in compiled.params.values()
 
 
-@pytest.mark.parametrize("query", ["", "   ", "\t", "\n"])
-def test_search_rejects_blank_query(query: str) -> None:
+@pytest.mark.parametrize(
+    "query",
+    ["", "   ", "\t", "\n", "---", "😍"],
+)
+def test_search_without_terms_returns_empty_result(query: str) -> None:
     session = Mock(spec=Session)
     repository = SqlAlchemyCatalogueRepository(session=session)
 
-    with pytest.raises(ValueError, match="query must not be empty"):
-        repository.search(
-            client_id=ClientId("client-1"),
-            query=query,
-        )
+    items = repository.search(
+        client_id=ClientId("client-1"),
+        query=query,
+    )
 
-    session.scalars.assert_not_called()
-
-
-def test_search_rejects_query_without_searchable_text() -> None:
-    session = Mock(spec=Session)
-    repository = SqlAlchemyCatalogueRepository(session=session)
-
-    with pytest.raises(ValueError, match="query must contain searchable text"):
-        repository.search(
-            client_id=ClientId("client-1"),
-            query="---",
-        )
-
+    assert items == ()
     session.scalars.assert_not_called()
 
 

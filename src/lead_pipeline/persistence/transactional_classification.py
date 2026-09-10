@@ -12,16 +12,16 @@ from lead_pipeline.application.persist_classification_outcome import (
     ClassificationPersistenceReceipt,
     PersistClassificationOutcome,
 )
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.enums import ProcessingStatus
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.persistence.sqlalchemy_repositories import (
+    SqlAlchemyCatalogueRepository,
     SqlAlchemyClassificationRepository,
     SqlAlchemyInteractionRepository,
     SqlAlchemyUnresolvedRecordRepository,
 )
-from lead_pipeline.persistence.transactions import (
-    SessionTransactionFactory,
-)
+from lead_pipeline.persistence.transactions import SessionTransactionFactory
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +34,7 @@ class TransactionalClassificationResult:
 
 @dataclass(slots=True)
 class TransactionalInteractionClassifier:
-    """Advance lifecycle, classify outside a transaction, and persist atomically."""
+    """Retrieve context, classify safely, and persist atomically."""
 
     session_factory: SessionTransactionFactory
     classifier: ClassifyInteraction
@@ -60,7 +60,24 @@ class TransactionalInteractionClassifier:
             )
 
         try:
-            outcome = self.classifier.execute(interaction)
+            with self.session_factory.begin() as session:
+                catalogue_repository = SqlAlchemyCatalogueRepository(
+                    session=session,
+                )
+                catalogue_items = catalogue_repository.search(
+                    client_id=interaction.client_id,
+                    query=interaction.text,
+                    limit=5,
+                )
+
+            catalogue_context = CatalogueContext(
+                client_id=interaction.client_id,
+                items=catalogue_items,
+            )
+            outcome = self.classifier.execute(
+                interaction,
+                catalogue_context=catalogue_context,
+            )
 
             with self.session_factory.begin() as session:
                 interaction_repository = SqlAlchemyInteractionRepository(

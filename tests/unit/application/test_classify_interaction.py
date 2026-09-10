@@ -8,9 +8,11 @@ import pytest
 from lead_pipeline.application.classify_interaction import (
     ClassifyInteraction,
 )
+from lead_pipeline.domain.catalogue import CatalogueContext, CatalogueItem
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ClassificationLabel, SourceType
 from lead_pipeline.domain.identifiers import (
+    CatalogueItemId,
     ClientId,
     InstagramEventId,
     InstagramMediaId,
@@ -27,12 +29,16 @@ class RecordingClassificationProvider:
 
     result: ClassificationResult
     calls: list[InstagramInteraction] = field(default_factory=list)
+    catalogue_contexts: list[CatalogueContext] = field(default_factory=list)
 
     def classify(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
     ) -> ClassificationResult:
         self.calls.append(interaction)
+        self.catalogue_contexts.append(catalogue_context)
         return self.result
 
 
@@ -209,3 +215,69 @@ def test_double_uncertainty_creates_unresolved_record() -> None:
     assert outcome.unresolved_record.primary_result is primary_result
     assert outcome.unresolved_record.stronger_result is stronger_result
     assert outcome.unresolved_record.created_at == CREATED_AT
+
+
+def test_same_catalogue_context_reaches_both_classifiers() -> None:
+    primary_result = build_result(
+        ClassificationLabel.UNCERTAIN,
+        model_name="primary-classifier",
+        confidence=0.45,
+    )
+    stronger_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="stronger-classifier",
+    )
+    use_case, primary_provider, stronger_provider = build_use_case(
+        primary_result,
+        stronger_result,
+    )
+    interaction = build_interaction()
+    context = CatalogueContext(
+        client_id=interaction.client_id,
+        items=(
+            CatalogueItem(
+                catalogue_item_id=CatalogueItemId("item-1"),
+                client_id=interaction.client_id,
+                name="Vitamin C Serum",
+                category="Serums",
+                description="Brightening serum.",
+            ),
+        ),
+    )
+
+    use_case.execute(
+        interaction,
+        catalogue_context=context,
+    )
+
+    assert primary_provider.catalogue_contexts == [context]
+    assert stronger_provider.catalogue_contexts == [context]
+
+
+def test_cross_client_catalogue_context_is_rejected_before_classification() -> None:
+    primary_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="primary-classifier",
+    )
+    stronger_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="stronger-classifier",
+    )
+    use_case, primary_provider, stronger_provider = build_use_case(
+        primary_result,
+        stronger_result,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="catalogue context must belong to the interaction client",
+    ):
+        use_case.execute(
+            build_interaction(),
+            catalogue_context=CatalogueContext(
+                client_id=ClientId("different-client"),
+            ),
+        )
+
+    assert primary_provider.calls == []
+    assert stronger_provider.calls == []

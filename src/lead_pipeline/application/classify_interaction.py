@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ClassificationLabel
 from lead_pipeline.domain.interactions import InstagramInteraction
@@ -44,11 +45,24 @@ class ClassifyInteraction:
     def execute(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext | None = None,
     ) -> ClassificationOutcome:
         """Return the final classification decision."""
 
+        context = catalogue_context
+
+        if context is None:
+            context = CatalogueContext(
+                client_id=interaction.client_id,
+            )
+
+        if context.client_id != interaction.client_id:
+            raise ValueError("catalogue context must belong to the interaction client")
+
         primary_result = self.primary_provider.classify(
             interaction,
+            catalogue_context=context,
         )
 
         if primary_result.label is not ClassificationLabel.UNCERTAIN:
@@ -59,6 +73,7 @@ class ClassifyInteraction:
 
         stronger_result = self.stronger_provider.classify(
             interaction,
+            catalogue_context=context,
         )
 
         if stronger_result.label is not ClassificationLabel.UNCERTAIN:

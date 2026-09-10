@@ -190,7 +190,7 @@ Comment text, username, and event ID are not printed.
 - [x] Tenant-aware persistence model
 - [x] Authorized Meta webhook ingestion
 - [x] Classification and uncertainty pipeline
-- [ ] Catalogue-grounded retrieval
+- [x] Catalogue-grounded retrieval
 - [ ] Evaluation against the 90% precision target
 - [ ] Retention and erasure automation
 - [ ] Controlled pilot validation

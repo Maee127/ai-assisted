@@ -1,16 +1,28 @@
 """Anthropic adapter for structured interaction classification."""
 
+import json
 from dataclasses import dataclass
 
 from anthropic import Anthropic
 from pydantic import BaseModel, Field
 
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ClassificationLabel
 from lead_pipeline.domain.interactions import InstagramInteraction
 
 SYSTEM_PROMPT = """You classify English Instagram comments for an authorized
 beauty and skin-care business.
+
+The user message is JSON containing:
+- comment: the minimized Instagram comment.
+- catalogue_context: relevant items retrieved from this client's catalogue.
+
+Catalogue context is supporting evidence only. It may clarify product names,
+categories, descriptions, availability-related meaning, or suitability
+questions, but it must never determine the final label by itself. If catalogue
+context is empty, classify from the comment alone. Never classify a comment as
+a sales lead merely because a related catalogue item exists.
 
 Choose exactly one top-level label:
 
@@ -75,8 +87,30 @@ class AnthropicClassificationProvider:
     def classify(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
     ) -> ClassificationResult:
-        """Classify one minimized interaction."""
+        """Classify one minimized interaction with grounded context."""
+
+        if catalogue_context.client_id != interaction.client_id:
+            raise ValueError("catalogue context must belong to the interaction client")
+
+        content = json.dumps(
+            {
+                "comment": interaction.text,
+                "catalogue_context": [
+                    {
+                        "catalogue_item_id": item.catalogue_item_id.value,
+                        "name": item.name,
+                        "category": item.category,
+                        "description": item.description,
+                    }
+                    for item in catalogue_context.items
+                ],
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
 
         response = self.client.messages.parse(
             model=self.model,
@@ -85,7 +119,7 @@ class AnthropicClassificationProvider:
             messages=[
                 {
                     "role": "user",
-                    "content": interaction.text,
+                    "content": content,
                 }
             ],
             output_format=AnthropicClassificationOutput,

@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from lead_pipeline.application.classify_interaction import ClassifyInteraction
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ClassificationLabel, ProcessingStatus, SourceType
 from lead_pipeline.domain.identifiers import (
@@ -21,6 +22,7 @@ from lead_pipeline.domain.identifiers import (
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.persistence.models import (
+    CatalogueItemRow,
     ClassificationRow,
     InteractionRow,
     UnresolvedRecordRow,
@@ -71,13 +73,17 @@ class RecordingProvider:
         self.transaction_factory = transaction_factory
         self.error = error
         self.calls: list[InstagramInteraction] = []
+        self.catalogue_contexts: list[CatalogueContext] = []
         self.transaction_states: list[bool] = []
 
     def classify(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
     ) -> ClassificationResult:
         self.calls.append(interaction)
+        self.catalogue_contexts.append(catalogue_context)
         self.transaction_states.append(self.transaction_factory.active)
 
         if self.error is not None:
@@ -146,6 +152,7 @@ def test_provider_calls_run_between_lifecycle_transactions(
     initial_status: ProcessingStatus,
 ) -> None:
     session_mock = Mock(spec=Session)
+    session_mock.scalars.return_value.all.return_value = []
     processing_row = Mock(spec=InteractionRow)
     processing_row.processing_status = initial_status.value
     session_mock.get.return_value = processing_row
@@ -173,17 +180,21 @@ def test_provider_calls_run_between_lifecycle_transactions(
 
     assert primary_provider.transaction_states == [False]
     assert stronger_provider.calls == []
-    assert transaction_factory.entries == 2
-    assert transaction_factory.exits == 2
+    assert transaction_factory.entries == 3
+    assert transaction_factory.exits == 3
     assert transaction_factory.exception_types == []
     assert session_mock.add.call_count == 1
     assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
     assert result.outcome.final_result.label is ClassificationLabel.SALES_LEAD
     assert result.receipt.primary_classification_id
+    assert primary_provider.catalogue_contexts == [
+        CatalogueContext(client_id=ClientId("client-1"))
+    ]
 
 
 def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
     session_mock = Mock(spec=Session)
+    session_mock.scalars.return_value.all.return_value = []
     processing_row = Mock(spec=InteractionRow)
     processing_row.processing_status = ProcessingStatus.RECEIVED.value
     session_mock.get.return_value = processing_row
@@ -215,8 +226,8 @@ def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
 
     assert primary_provider.transaction_states == [False]
     assert stronger_provider.transaction_states == [False]
-    assert transaction_factory.entries == 2
-    assert transaction_factory.exits == 2
+    assert transaction_factory.entries == 3
+    assert transaction_factory.exits == 3
     assert session_mock.add.call_count == 3
     assert processing_row.processing_status == ProcessingStatus.COMPLETED.value
 
@@ -240,6 +251,7 @@ def test_double_uncertainty_stages_all_rows_in_one_transaction() -> None:
 
 def test_provider_failure_marks_interaction_retryable() -> None:
     session_mock = Mock(spec=Session)
+    session_mock.scalars.return_value.all.return_value = []
     processing_row = Mock(spec=InteractionRow)
     processing_row.processing_status = ProcessingStatus.RECEIVED.value
     session_mock.get.return_value = processing_row
@@ -265,8 +277,8 @@ def test_provider_failure_marks_interaction_retryable() -> None:
         runner.execute(build_interaction())
 
     assert primary_provider.transaction_states == [False]
-    assert transaction_factory.entries == 2
-    assert transaction_factory.exits == 2
+    assert transaction_factory.entries == 3
+    assert transaction_factory.exits == 3
     assert transaction_factory.exception_types == []
     assert processing_row.processing_status == (
         ProcessingStatus.RETRYABLE_FAILURE.value
@@ -276,6 +288,7 @@ def test_provider_failure_marks_interaction_retryable() -> None:
 
 def test_persistence_failure_marks_interaction_retryable() -> None:
     session_mock = Mock(spec=Session)
+    session_mock.scalars.return_value.all.return_value = []
     processing_row = Mock(spec=InteractionRow)
     processing_row.processing_status = ProcessingStatus.RECEIVED.value
     session_mock.get.return_value = processing_row
@@ -304,9 +317,99 @@ def test_persistence_failure_marks_interaction_retryable() -> None:
         runner.execute(build_interaction())
 
     assert primary_provider.transaction_states == [False]
+    assert transaction_factory.entries == 4
+    assert transaction_factory.exits == 4
+    assert transaction_factory.exception_types == [RuntimeError]
+    assert processing_row.processing_status == (
+        ProcessingStatus.RETRYABLE_FAILURE.value
+    )
+
+
+def test_retrieved_catalogue_items_reach_provider_outside_transaction() -> None:
+    session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.RECEIVED.value
+    session_mock.get.return_value = processing_row
+
+    catalogue_row = Mock(spec=CatalogueItemRow)
+    catalogue_row.client_id = "client-1"
+    catalogue_row.catalogue_item_id = "item-1"
+    catalogue_row.name = "Vitamin C Serum"
+    catalogue_row.category = "Serums"
+    catalogue_row.description = "Brightening serum for dull-looking skin."
+    session_mock.scalars.return_value.all.return_value = [catalogue_row]
+
+    transaction_factory = RecordingTransactionFactory(
+        session=cast(Session, session_mock),
+    )
+    primary_provider = RecordingProvider(
+        result=build_result(
+            label=ClassificationLabel.SALES_LEAD,
+            model_version="claude-haiku-4-5-20251001",
+        ),
+        transaction_factory=transaction_factory,
+    )
+    stronger_provider = RecordingProvider(
+        result=None,
+        transaction_factory=transaction_factory,
+    )
+    runner = build_runner(
+        transaction_factory=transaction_factory,
+        primary_provider=primary_provider,
+        stronger_provider=stronger_provider,
+    )
+
+    runner.execute(build_interaction())
+
+    assert primary_provider.transaction_states == [False]
+    assert len(primary_provider.catalogue_contexts) == 1
+
+    context = primary_provider.catalogue_contexts[0]
+    assert context.client_id == ClientId("client-1")
+    assert len(context.items) == 1
+    assert context.items[0].catalogue_item_id.value == "item-1"
+    assert context.items[0].client_id == ClientId("client-1")
+    assert context.items[0].name == "Vitamin C Serum"
+    assert context.items[0].category == "Serums"
+    assert context.items[0].description == ("Brightening serum for dull-looking skin.")
+
+
+def test_catalogue_retrieval_failure_marks_interaction_retryable() -> None:
+    session_mock = Mock(spec=Session)
+    processing_row = Mock(spec=InteractionRow)
+    processing_row.processing_status = ProcessingStatus.RECEIVED.value
+    session_mock.get.return_value = processing_row
+    session_mock.scalars.side_effect = RuntimeError("catalogue unavailable")
+
+    transaction_factory = RecordingTransactionFactory(
+        session=cast(Session, session_mock),
+    )
+    primary_provider = RecordingProvider(
+        result=build_result(
+            label=ClassificationLabel.SALES_LEAD,
+            model_version="claude-haiku-4-5-20251001",
+        ),
+        transaction_factory=transaction_factory,
+    )
+    stronger_provider = RecordingProvider(
+        result=None,
+        transaction_factory=transaction_factory,
+    )
+    runner = build_runner(
+        transaction_factory=transaction_factory,
+        primary_provider=primary_provider,
+        stronger_provider=stronger_provider,
+    )
+
+    with pytest.raises(RuntimeError, match="catalogue unavailable"):
+        runner.execute(build_interaction())
+
+    assert primary_provider.calls == []
+    assert stronger_provider.calls == []
     assert transaction_factory.entries == 3
     assert transaction_factory.exits == 3
     assert transaction_factory.exception_types == [RuntimeError]
     assert processing_row.processing_status == (
         ProcessingStatus.RETRYABLE_FAILURE.value
     )
+    session_mock.add.assert_not_called()

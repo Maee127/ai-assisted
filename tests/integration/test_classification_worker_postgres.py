@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from lead_pipeline.application.classify_interaction import ClassifyInteraction
+from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import (
     ClassificationLabel,
@@ -19,6 +20,7 @@ from lead_pipeline.domain.enums import (
 from lead_pipeline.domain.identifiers import InstagramEventId
 from lead_pipeline.domain.interactions import InstagramInteraction
 from lead_pipeline.persistence.models import (
+    CatalogueItemRow,
     ClassificationRow,
     InteractionRow,
     UnresolvedRecordRow,
@@ -48,12 +50,16 @@ class StaticProvider:
 
     result: ClassificationResult
     calls: list[InstagramInteraction] = field(default_factory=list)
+    catalogue_contexts: list[CatalogueContext] = field(default_factory=list)
 
     def classify(
         self,
         interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
     ) -> ClassificationResult:
         self.calls.append(interaction)
+        self.catalogue_contexts.append(catalogue_context)
         return self.result
 
 
@@ -73,6 +79,7 @@ def build_uncertain_result(
 def test_double_uncertainty_is_persisted_and_completed_in_postgres() -> None:
     database_url = get_test_database_url()
     event_id = f"classification-integration-{uuid4()}"
+    catalogue_item_id = f"classification-catalogue-{uuid4()}"
     engine = create_engine(
         database_url,
         pool_pre_ping=True,
@@ -132,6 +139,15 @@ def test_double_uncertainty_is_persisted_and_completed_in_postgres() -> None:
                     username="integration_user",
                 )
             )
+            session.add(
+                CatalogueItemRow(
+                    client_id="client-integration-test",
+                    catalogue_item_id=catalogue_item_id,
+                    name="Calming Skin Serum",
+                    category="Serums",
+                    description="A product for a stated dry-looking skin concern.",
+                )
+            )
 
         result = job.execute(
             InstagramEventId(event_id),
@@ -141,6 +157,17 @@ def test_double_uncertainty_is_persisted_and_completed_in_postgres() -> None:
         assert result.outcome.was_escalated
         assert len(primary_provider.calls) == 1
         assert len(stronger_provider.calls) == 1
+        assert len(primary_provider.catalogue_contexts) == 1
+        assert len(stronger_provider.catalogue_contexts) == 1
+
+        primary_context = primary_provider.catalogue_contexts[0]
+        stronger_context = stronger_provider.catalogue_contexts[0]
+
+        assert primary_context == stronger_context
+        assert primary_context.client_id.value == "client-integration-test"
+        assert len(primary_context.items) == 1
+        assert primary_context.items[0].catalogue_item_id.value == catalogue_item_id
+        assert primary_context.items[0].name == "Calming Skin Serum"
 
         with Session(engine) as session:
             interaction_row = session.get(
@@ -186,6 +213,13 @@ def test_double_uncertainty_is_persisted_and_completed_in_postgres() -> None:
                 InteractionRow,
                 event_id,
             )
+            catalogue_row = session.get(
+                CatalogueItemRow,
+                ("client-integration-test", catalogue_item_id),
+            )
+
+            if catalogue_row is not None:
+                session.delete(catalogue_row)
 
             if interaction_row is not None:
                 session.delete(interaction_row)

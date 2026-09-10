@@ -36,15 +36,7 @@ _CATALOGUE_TERM_PATTERN = re.compile(r"[a-z0-9]+")
 def _catalogue_search_terms(query: str) -> tuple[str, ...]:
     normalized_query = query.strip().casefold()
 
-    if not normalized_query:
-        raise ValueError("query must not be empty")
-
-    terms = tuple(dict.fromkeys(_CATALOGUE_TERM_PATTERN.findall(normalized_query)))
-
-    if not terms:
-        raise ValueError("query must contain searchable text")
-
-    return terms
+    return tuple(dict.fromkeys(_CATALOGUE_TERM_PATTERN.findall(normalized_query)))
 
 
 @dataclass(slots=True)
@@ -91,6 +83,8 @@ class SqlAlchemyCatalogueRepository:
             raise ValueError("limit must be between 1 and 20")
 
         terms = _catalogue_search_terms(query)
+        if not terms:
+            return ()
         patterns = tuple(f"%{term}%" for term in terms)
 
         name_match = or_(
