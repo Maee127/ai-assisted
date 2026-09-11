@@ -1,25 +1,60 @@
-# Instagram Beauty Lead Intelligence Pipeline
+# Lead Intelligence Pipeline
 
-A privacy-aware AI pipeline that helps beauty and skincare businesses identify qualified sales opportunities and customer-care cases from authorized Instagram interactions.
+A privacy-aware AI pipeline for turning authorized customer interactions into structured lead intelligence, qualification signals, and customer-care routing.
 
-> **Project status:** Milestone 1 — repository security and project foundation The current code is an early prototype and does not yet implement the complete MVP described in the product specification.
+The system is designed to help businesses identify which incoming interactions may represent real sales opportunities, which require customer support, and which are uncertain enough to need stronger model review.
 
-## The problem
+Rather than treating every interaction equally, the pipeline combines structured classification, catalogue-grounded context, business rules, validation, persistence, and uncertainty handling to create a more useful downstream sales workflow.
 
-Beauty and skincare businesses may receive many Instagram comments containing:
+## Business Problem
 
-- Product questions
-- Purchase intent
-- Requests for recommendations
-- Price or availability questions
-- Customer complaints
-- Irrelevant content or spam
+Businesses can receive large volumes of customer interactions across social and digital channels, but those interactions do not all have the same commercial value or urgency.
 
-Reviewing these interactions manually is time-consuming, and valuable sales opportunities can be missed.
+Without a structured qualification process:
 
-## The proposed solution
+- high-intent leads may be missed or followed up too late;
+- support requests may be mixed with sales opportunities;
+- teams may spend time reviewing low-value interactions manually;
+- uncertain cases may be classified too confidently;
+- customer context and product interest may remain fragmented across systems.
 
-The MVP will receive new comments and supported mentions from one client-authorized Instagram Business account through Meta’s official API.
+The Lead Intelligence Pipeline is designed to reduce that ambiguity by converting raw interactions into structured, reviewable business signals.
+
+## Current Scope
+
+The current MVP focuses on authorized Instagram Business interactions and public or client-provided business information.
+
+The pipeline includes:
+
+- interaction ingestion
+- validation and normalization
+- lead and customer-care classification
+- interest extraction
+- stronger-model escalation for uncertain cases
+- catalogue-grounded product or service context
+- structured persistence
+- tenant-aware data handling
+- retention and erasure foundations
+- automated tests and static checks
+
+The system is intentionally designed around explicit privacy and access boundaries. It does not rely on private-profile scraping, unauthorized messaging, or unrestricted personal-data collection.
+
+## Intended Outcome
+
+The goal is to help a business move from:
+
+`raw interaction → manual review → inconsistent follow-up`
+
+toward:
+
+`validated interaction → structured intent → lead priority → appropriate business action`
+
+This allows sales and customer-care teams to spend more time on the interactions that actually require attention.
+
+
+## MVP Workflow
+
+The MVP processes new comments and supported mentions from one client-authorized Instagram Business account through Meta's official API.
 
 It will:
 
@@ -120,8 +155,6 @@ ai-assisted/
 ├── .gitignore
 └── README.md
 ```
-
-The files under `pipelines/` represent the early prototype and will be reorganized during later milestones.
 
 ## Configuration
 
