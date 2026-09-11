@@ -6,6 +6,8 @@ The system is designed to help businesses identify which incoming interactions m
 
 Rather than treating every interaction equally, the pipeline combines structured classification, catalogue-grounded context, business rules, validation, persistence, and uncertainty handling to create a more useful downstream sales workflow.
 
+![Lead Intelligence Pipeline](docs/images/lead_intelligence_pipeline.png)
+
 ## Business Problem
 
 Businesses can receive large volumes of customer interactions across social and digital channels, but those interactions do not all have the same commercial value or urgency.
@@ -47,7 +49,7 @@ The goal is to help a business move from:
 
 toward:
 
-`validated interaction → structured intent → lead priority → appropriate business action`
+`validated interaction → structured intent → priority & routing → appropriate business action`
 
 This allows sales and customer-care teams to spend more time on the interactions that actually require attention.
 
@@ -56,20 +58,20 @@ This allows sales and customer-care teams to spend more time on the interactions
 
 The MVP processes new comments and supported mentions from one client-authorized Instagram Business account through Meta's official API.
 
-It will:
+The workflow:
 
-1. Validate and minimally store authorized interactions.
-2. Classify every new English comment.
-3. Separate sales opportunities from customer-care cases.
-4. Re-evaluate uncertain results with a stronger model.
-5. Retrieve relevant context from the client’s product catalogue.
-6. Build one evolving, client-scoped lead profile per Instagram user.
-7. Preserve evidence, confidence, and model-version information.
-8. Apply retention, tenant-isolation, and verified-erasure rules.
+1. Validates and minimally stores authorized interactions.
+2. Classifies each eligible new English comment.
+3. Separates sales opportunities from customer-care cases.
+4. Re-evaluates uncertain results with a stronger model.
+5. Retrieves relevant context from the client's product catalogue.
+6. Builds an evolving, client-scoped lead profile for each relevant Instagram user.
+7. Preserves evidence, confidence, and model-version information.
+8. Applies tenant-isolation rules and supports the retention and erasure lifecycle.
 
 The MVP will **not** automatically reply to or contact Instagram users.
 
-## Classification outcomes
+## Classification Outcomes
 
 Each eligible interaction receives one top-level classification:
 
@@ -83,38 +85,21 @@ Each eligible interaction receives one top-level classification:
 
 Uncertain results are never forced into the validated lead database.
 
-## Product principles
+## Product Principles
 
 - **Authorized access only:** no scraping or scanning unrelated public accounts.
 - **Precision first:** the initial target is at least 90% precision for promoted sales leads.
 - **Data minimization:** store only information required for classification and traceability.
-- **Beauty-relevant profiles only:** no unrelated personal-profile enrichment.
+- **Relevant lead data only:** no unrelated personal-profile enrichment or speculative personal-data collection.
 - **No medical inference:** record only skin concerns explicitly stated by the user.
 - **Explainable interests:** preserve evidence, confidence, inference type, and model version.
 - **Client isolation:** never combine or share user information across businesses.
 - **No automatic outreach:** the MVP performs intelligence and routing only.
 
-## High-level workflow
 
-```mermaid
-flowchart TD
-    A["Authorized Instagram event"] --> B["Minimal event record"]
-    B --> C["English classification"]
-    C --> D{"Confident?"}
-    D -- No --> E["Stronger model"]
-    E --> F{"Resolved?"}
-    F -- No --> G["Uncertainty dataset"]
-    D -- Yes --> H["Result routing"]
-    F -- Yes --> H
-    H --> I["Sales lead profile"]
-    H --> J["Customer-care queue"]
-```
+## MVP Boundaries
 
-The client’s catalogue supplies relevant product context through retrieval-augmented generation (RAG). The classifier—not the retrieval component—makes the final classification decision.
-
-## MVP boundaries
-
-### In scope
+### In Scope
 
 - One consenting beauty or skincare pilot business
 - One authorized Instagram Business account
@@ -127,7 +112,7 @@ The client’s catalogue supplies relevant product context through retrieval-aug
 - Client-scoped lead profiles
 - Retention and verified erasure
 
-### Out of scope
+### Out of Scope
 
 - Scraping public profiles, competitors, or hashtags
 - Historical comment imports
@@ -139,7 +124,7 @@ The client’s catalogue supplies relevant product context through retrieval-aug
 - Cross-client enrichment
 - Customer-facing dashboards or CRM integrations
 
-## Repository structure
+## Repository Structure
 
 ```text
 ai-assisted/
@@ -182,7 +167,7 @@ Required variables:
 
 Never commit the local `.env` file or real credentials.
 
-## Classify one persisted interaction
+## Classify One Persisted Interaction
 
 After installing the project, applying migrations, and exporting the required
 database and Anthropic environment variables, classify one interaction by its
@@ -210,7 +195,7 @@ It prints only privacy-safe outcome metadata:
 Comment text, username, and event ID are not printed.
 
 
-## Current implementation status
+## Current Implementation Status
 
 - [x] Milestone 0: MVP scope and acceptance criteria
 - [x] Repository secret and generated-file cleanup
@@ -223,12 +208,13 @@ Comment text, username, and event ID are not printed.
 - [x] Tenant-aware persistence model
 - [x] Authorized Meta webhook ingestion
 - [x] Classification and uncertainty pipeline
+- [x] Interest extraction and unresolved-case handling
 - [x] Catalogue-grounded retrieval
 - [ ] Evaluation against the 90% precision target
 - [ ] Retention and erasure automation
 - [ ] Controlled pilot validation
 
-## Source of truth
+## Source of Truth
 
 The complete approved product scope, all 35 product decisions, and the measurable MVP acceptance criteria are documented in:
 
