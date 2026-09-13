@@ -1,6 +1,7 @@
 """Tests for interest extraction and stronger-model escalation."""
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import pytest
 
@@ -49,8 +50,8 @@ def build_interaction() -> InstagramInteraction:
         media_id=InstagramMediaId("media-1"),
         source_type=SourceType.POST_COMMENT,
         text="I need a serum for my dry-looking skin.",
-        source_timestamp=None,
-        collected_at=None,
+        source_timestamp=datetime(2026, 9, 13, 12, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 9, 13, 12, 1, tzinfo=UTC),
         status=ProcessingStatus.RECEIVED,
     )
 
@@ -232,7 +233,7 @@ def test_empty_stronger_result_rejects_candidate() -> None:
 
     assert outcome.confirmed_interests == ()
     assert outcome.unresolved_interests == ()
-    assert outcome.was_escalated is False
+    assert outcome.was_escalated
 
 
 def test_catalogue_context_must_match_client() -> None:
