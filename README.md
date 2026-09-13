@@ -22,6 +22,22 @@ Without a structured qualification process:
 
 The Lead Intelligence Pipeline is designed to reduce that ambiguity by converting raw interactions into structured, reviewable business signals.
 
+## Business Value
+
+The pipeline is designed for businesses that receive more customer interactions than a team can evaluate consistently in real time.
+
+Its value is not simply classification. It is helping the business decide:
+
+- which interactions may represent real buying intent;
+- which should be routed to customer care;
+- which cases require stronger-model review;
+- what product or service context is relevant;
+- which cases should not be promoted because confidence is insufficient.
+
+By structuring those decisions, the system can help reduce missed opportunities, inconsistent routing, unnecessary manual review, and overconfident AI decisions.
+
+The intended result is a more traceable lead-handling workflow in which every promoted opportunity has supporting evidence, confidence information, and clear tenant ownership.
+
 ## Current Scope
 
 The current MVP focuses on authorized Instagram Business interactions and public or client-provided business information.
@@ -213,6 +229,23 @@ Comment text, username, and event ID are not printed.
 - [ ] Evaluation against the 90% precision target
 - [ ] Retention and erasure automation
 - [ ] Controlled pilot validation
+
+## Current Limitations
+
+The current implementation is an MVP and controlled engineering build.
+
+It does not yet include:
+
+- validated production-scale performance;
+- completed evaluation against the 90% precision target;
+- fully automated retention and erasure workflows;
+- customer-facing dashboards;
+- CRM integration;
+- automatic outreach;
+- multilingual classification;
+- direct-message processing.
+
+The system is intended to be validated through a controlled pilot before broader deployment.
 
 ## Source of Truth
 
