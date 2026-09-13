@@ -20,6 +20,7 @@ from lead_pipeline.domain.identifiers import (
     InstagramUserId,
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
+from lead_pipeline.domain.interests import InterestEvidence
 from lead_pipeline.domain.status import ensure_transition_allowed
 from lead_pipeline.domain.unresolved import UnresolvedRecord
 from lead_pipeline.persistence.exceptions import InteractionNotFoundError
@@ -27,6 +28,8 @@ from lead_pipeline.persistence.models import (
     CatalogueItemRow,
     ClassificationRow,
     InteractionRow,
+    InterestEvidenceRow,
+    LeadProfileRow,
     UnresolvedRecordRow,
 )
 
@@ -129,6 +132,102 @@ class SqlAlchemyCatalogueRepository:
             )
             for row in rows
         )
+
+
+@dataclass(slots=True)
+class SqlAlchemyLeadProfileRepository:
+    """Create or update one client-scoped lead profile."""
+
+    session: Session
+    id_factory: Callable[[], UUID] = uuid4
+
+    def get_or_create(
+        self,
+        *,
+        client_id: ClientId,
+        user_id: InstagramUserId,
+        username: str | None,
+        updated_at: datetime,
+    ) -> str:
+        """Stage a profile insert or metadata update."""
+
+        if updated_at.tzinfo is None:
+            raise ValueError("updated_at must be timezone-aware")
+
+        normalized_username = username.strip() if username is not None else None
+        if normalized_username == "":
+            normalized_username = None
+
+        statement = select(LeadProfileRow).where(
+            LeadProfileRow.client_id == client_id.value,
+            LeadProfileRow.user_id == user_id.value,
+        )
+        row = self.session.scalar(statement)
+
+        if row is None:
+            lead_id = str(self.id_factory())
+            self.session.add(
+                LeadProfileRow(
+                    lead_id=lead_id,
+                    client_id=client_id.value,
+                    user_id=user_id.value,
+                    username=normalized_username,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                )
+            )
+            return lead_id
+
+        if normalized_username is not None:
+            row.username = normalized_username
+
+        row.updated_at = updated_at
+        return row.lead_id
+
+
+@dataclass(slots=True)
+class SqlAlchemyInterestEvidenceRepository:
+    """Persist confirmed interest evidence."""
+
+    session: Session
+    id_factory: Callable[[], UUID] = uuid4
+
+    def add(
+        self,
+        *,
+        lead_id: str,
+        interest: InterestEvidence,
+        created_at: datetime,
+    ) -> str:
+        """Stage one confirmed interest row."""
+
+        normalized_lead_id = lead_id.strip()
+
+        if not normalized_lead_id:
+            raise ValueError("lead_id must not be empty")
+
+        if created_at.tzinfo is None:
+            raise ValueError("created_at must be timezone-aware")
+
+        interest_id = str(self.id_factory())
+
+        self.session.add(
+            InterestEvidenceRow(
+                interest_id=interest_id,
+                lead_id=normalized_lead_id,
+                source_event_id=interest.source_event_id.value,
+                name=interest.name,
+                interest_type=interest.interest_type.value,
+                confidence=interest.confidence,
+                model_name=interest.model_name,
+                model_version=interest.model_version,
+                catalogue_evidence=interest.catalogue_evidence,
+                prompt_version=interest.prompt_version,
+                created_at=created_at,
+            )
+        )
+
+        return interest_id
 
 
 @dataclass(slots=True)

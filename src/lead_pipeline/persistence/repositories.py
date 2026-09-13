@@ -6,8 +6,13 @@ from typing import Protocol
 from lead_pipeline.domain.catalogue import CatalogueItem
 from lead_pipeline.domain.classification import ClassificationResult
 from lead_pipeline.domain.enums import ProcessingStatus
-from lead_pipeline.domain.identifiers import ClientId, InstagramEventId
+from lead_pipeline.domain.identifiers import (
+    ClientId,
+    InstagramEventId,
+    InstagramUserId,
+)
 from lead_pipeline.domain.interactions import InstagramInteraction
+from lead_pipeline.domain.interests import InterestEvidence
 from lead_pipeline.domain.unresolved import UnresolvedRecord
 
 
@@ -89,5 +94,36 @@ class CatalogueRepository(Protocol):
         limit: int = 5,
     ) -> tuple[CatalogueItem, ...]:
         """Return relevant items only from the specified client catalogue."""
+
+        ...
+
+
+class LeadProfileRepository(Protocol):
+    """Persistence boundary for client-scoped lead profiles."""
+
+    def get_or_create(
+        self,
+        *,
+        client_id: ClientId,
+        user_id: InstagramUserId,
+        username: str | None,
+        updated_at: datetime,
+    ) -> str:
+        """Return the stable lead ID, creating the profile when absent."""
+
+        ...
+
+
+class InterestEvidenceRepository(Protocol):
+    """Persistence boundary for confirmed lead-interest evidence."""
+
+    def add(
+        self,
+        *,
+        lead_id: str,
+        interest: InterestEvidence,
+        created_at: datetime,
+    ) -> str:
+        """Persist confirmed interest evidence and return its identifier."""
 
         ...
