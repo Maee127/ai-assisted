@@ -180,6 +180,11 @@ Required variables:
 | `STRONGER_CLASSIFIER_MODEL` | Selects the stronger uncertainty classifier; defaults to Claude Sonnet 5 |
 | `CLASSIFICATION_PROMPT_VERSION` | Identifies the classification prompt version stored with results |
 | `CLASSIFICATION_MAX_TOKENS` | Limits generated tokens per classification; defaults to 256 |
+| `PRIMARY_INTEREST_EXTRACTOR_MODEL` | Selects the economical primary interest extractor; defaults to Claude Haiku 4.5 |
+| `STRONGER_INTEREST_EXTRACTOR_MODEL` | Selects the stronger extractor for uncertain inferred interests; defaults to Claude Sonnet 5 |
+| `INTEREST_PROMPT_VERSION` | Identifies the interest-extraction prompt version stored with evidence |
+| `INTEREST_MAX_TOKENS` | Limits generated tokens per interest-extraction request; defaults to 512 |
+| `INFERRED_INTEREST_CONFIDENCE_THRESHOLD` | Escalates inferred interests below this confidence; defaults to 0.8 |
 
 Never commit the local `.env` file or real credentials.
 
