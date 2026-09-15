@@ -176,6 +176,7 @@ class SqlAlchemyLeadProfileRepository:
                     updated_at=updated_at,
                 )
             )
+            self.session.flush()
             return lead_id
 
         if normalized_username is not None:

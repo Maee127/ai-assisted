@@ -72,6 +72,7 @@ def test_get_or_create_adds_new_client_scoped_profile() -> None:
     assert lead_id == str(LEAD_ID)
     session.scalar.assert_called_once()
     session.add.assert_called_once()
+    session.flush.assert_called_once_with()
 
     row = cast(
         LeadProfileRow,
@@ -125,6 +126,7 @@ def test_get_or_create_updates_existing_profile_metadata() -> None:
     assert row.created_at == RECORDED_AT
     assert row.updated_at == LATER_AT
     session.add.assert_not_called()
+    session.flush.assert_not_called()
 
 
 def test_missing_username_preserves_existing_metadata() -> None:

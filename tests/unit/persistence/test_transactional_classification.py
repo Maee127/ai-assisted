@@ -11,9 +11,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from lead_pipeline.application.classify_interaction import ClassifyInteraction
+from lead_pipeline.application.extract_interests import ExtractInterests
 from lead_pipeline.domain.catalogue import CatalogueContext
 from lead_pipeline.domain.classification import ClassificationResult
-from lead_pipeline.domain.enums import ClassificationLabel, ProcessingStatus, SourceType
+from lead_pipeline.domain.enums import (
+    ClassificationLabel,
+    ProcessingStatus,
+    SourceType,
+)
 from lead_pipeline.domain.identifiers import (
     ClientId,
     InstagramEventId,
@@ -21,6 +26,7 @@ from lead_pipeline.domain.identifiers import (
     InstagramUserId,
 )
 from lead_pipeline.domain.interactions import InstagramInteraction
+from lead_pipeline.domain.interests import InterestEvidence
 from lead_pipeline.persistence.models import (
     CatalogueItemRow,
     ClassificationRow,
@@ -95,6 +101,42 @@ class RecordingProvider:
         return self.result
 
 
+class RecordingInterestProvider:
+    """Return configured interests and record transaction state."""
+
+    def __init__(
+        self,
+        *,
+        result: tuple[InterestEvidence, ...],
+        transaction_factory: RecordingTransactionFactory,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result
+        self.transaction_factory = transaction_factory
+        self.error = error
+        self.calls: list[InstagramInteraction] = []
+        self.catalogue_contexts: list[CatalogueContext] = []
+        self.candidate_batches: list[tuple[InterestEvidence, ...]] = []
+        self.transaction_states: list[bool] = []
+
+    def extract(
+        self,
+        interaction: InstagramInteraction,
+        *,
+        catalogue_context: CatalogueContext,
+        candidates: tuple[InterestEvidence, ...] = (),
+    ) -> tuple[InterestEvidence, ...]:
+        self.calls.append(interaction)
+        self.catalogue_contexts.append(catalogue_context)
+        self.candidate_batches.append(candidates)
+        self.transaction_states.append(self.transaction_factory.active)
+
+        if self.error is not None:
+            raise self.error
+
+        return self.result
+
+
 def build_interaction() -> InstagramInteraction:
     return InstagramInteraction(
         event_id=InstagramEventId("event-1"),
@@ -128,15 +170,37 @@ def build_runner(
     transaction_factory: RecordingTransactionFactory,
     primary_provider: RecordingProvider,
     stronger_provider: RecordingProvider,
+    primary_interest_provider: RecordingInterestProvider | None = None,
+    stronger_interest_provider: RecordingInterestProvider | None = None,
 ) -> TransactionalInteractionClassifier:
     classifier = ClassifyInteraction(
         primary_provider=primary_provider,
         stronger_provider=stronger_provider,
         clock=lambda: CLASSIFIED_AT,
     )
+
+    if primary_interest_provider is None:
+        primary_interest_provider = RecordingInterestProvider(
+            result=(),
+            transaction_factory=transaction_factory,
+        )
+
+    if stronger_interest_provider is None:
+        stronger_interest_provider = RecordingInterestProvider(
+            result=(),
+            transaction_factory=transaction_factory,
+        )
+
+    interest_extractor = ExtractInterests(
+        primary_provider=primary_interest_provider,
+        stronger_provider=stronger_interest_provider,
+        inferred_confidence_threshold=0.8,
+    )
+
     return TransactionalInteractionClassifier(
         session_factory=transaction_factory,
         classifier=classifier,
+        interest_extractor=interest_extractor,
         clock=lambda: CLASSIFIED_AT,
     )
 

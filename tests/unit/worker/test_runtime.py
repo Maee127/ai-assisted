@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from lead_pipeline.processing.anthropic_classifier import (
     AnthropicClassificationProvider,
 )
+from lead_pipeline.processing.anthropic_interest_extractor import (
+    AnthropicInterestExtractionProvider,
+)
 from lead_pipeline.worker.classification_job import ClassificationJob
 from lead_pipeline.worker.runtime import create_classification_runtime
 
@@ -29,6 +32,23 @@ def configure_environment(
         "classification-test-v1",
     )
     monkeypatch.setenv("CLASSIFICATION_MAX_TOKENS", "321")
+    monkeypatch.setenv(
+        "PRIMARY_INTEREST_EXTRACTOR_MODEL",
+        "primary-interest-model",
+    )
+    monkeypatch.setenv(
+        "STRONGER_INTEREST_EXTRACTOR_MODEL",
+        "stronger-interest-model",
+    )
+    monkeypatch.setenv(
+        "INTEREST_PROMPT_VERSION",
+        "interest-test-v1",
+    )
+    monkeypatch.setenv("INTEREST_MAX_TOKENS", "654")
+    monkeypatch.setenv(
+        "INFERRED_INTEREST_CONFIDENCE_THRESHOLD",
+        "0.82",
+    )
 
 
 def test_create_runtime_composes_configured_classification_runner(
@@ -93,3 +113,23 @@ def test_create_runtime_composes_configured_classification_runner(
     assert stronger_provider.prompt_version == "classification-test-v1"
     assert primary_provider.max_tokens == 321
     assert stronger_provider.max_tokens == 321
+    primary_interest_provider = runtime.runner.interest_extractor.primary_provider
+    stronger_interest_provider = runtime.runner.interest_extractor.stronger_provider
+
+    assert isinstance(
+        primary_interest_provider,
+        AnthropicInterestExtractionProvider,
+    )
+    assert isinstance(
+        stronger_interest_provider,
+        AnthropicInterestExtractionProvider,
+    )
+    assert primary_interest_provider.client is anthropic_client
+    assert stronger_interest_provider.client is anthropic_client
+    assert primary_interest_provider.model == "primary-interest-model"
+    assert stronger_interest_provider.model == "stronger-interest-model"
+    assert primary_interest_provider.prompt_version == "interest-test-v1"
+    assert stronger_interest_provider.prompt_version == "interest-test-v1"
+    assert primary_interest_provider.max_tokens == 654
+    assert stronger_interest_provider.max_tokens == 654
+    assert runtime.runner.interest_extractor.inferred_confidence_threshold == 0.82
