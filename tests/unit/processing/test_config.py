@@ -12,6 +12,7 @@ from lead_pipeline.processing.config import (
     DEFAULT_INTEREST_PROMPT_VERSION,
     DEFAULT_PRIMARY_CLASSIFIER_MODEL,
     DEFAULT_PRIMARY_INTEREST_EXTRACTOR_MODEL,
+    DEFAULT_SALES_LEAD_CONFIDENCE_THRESHOLD,
     DEFAULT_STRONGER_CLASSIFIER_MODEL,
     DEFAULT_STRONGER_INTEREST_EXTRACTOR_MODEL,
     get_anthropic_api_key,
@@ -22,6 +23,7 @@ from lead_pipeline.processing.config import (
     get_interest_prompt_version,
     get_primary_classifier_model,
     get_primary_interest_extractor_model,
+    get_sales_lead_confidence_threshold,
     get_stronger_classifier_model,
     get_stronger_interest_extractor_model,
 )
@@ -59,11 +61,15 @@ def test_default_classifier_configuration_is_used(
     monkeypatch.delenv("STRONGER_CLASSIFIER_MODEL", raising=False)
     monkeypatch.delenv("CLASSIFICATION_PROMPT_VERSION", raising=False)
     monkeypatch.delenv("CLASSIFICATION_MAX_TOKENS", raising=False)
+    monkeypatch.delenv("SALES_LEAD_CONFIDENCE_THRESHOLD", raising=False)
 
     assert get_primary_classifier_model() == DEFAULT_PRIMARY_CLASSIFIER_MODEL
     assert get_stronger_classifier_model() == DEFAULT_STRONGER_CLASSIFIER_MODEL
     assert get_classification_prompt_version() == DEFAULT_CLASSIFICATION_PROMPT_VERSION
     assert get_classification_max_tokens() == DEFAULT_CLASSIFICATION_MAX_TOKENS
+    assert (
+        get_sales_lead_confidence_threshold() == DEFAULT_SALES_LEAD_CONFIDENCE_THRESHOLD
+    )
 
 
 @pytest.mark.parametrize(
@@ -306,3 +312,34 @@ def test_invalid_interest_confidence_threshold_is_rejected(
         ),
     ):
         get_inferred_interest_confidence_threshold()
+
+
+def test_configured_sales_lead_confidence_threshold_is_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "SALES_LEAD_CONFIDENCE_THRESHOLD",
+        " 0.94 ",
+    )
+
+    assert get_sales_lead_confidence_threshold() == 0.94
+
+
+@pytest.mark.parametrize(
+    "configured_value",
+    ["", " ", "-0.01", "1.01", "nan", "inf", "invalid"],
+)
+def test_invalid_sales_lead_confidence_threshold_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    configured_value: str,
+) -> None:
+    monkeypatch.setenv(
+        "SALES_LEAD_CONFIDENCE_THRESHOLD",
+        configured_value,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=("SALES_LEAD_CONFIDENCE_THRESHOLD must be a number between 0.0 and 1.0"),
+    ):
+        get_sales_lead_confidence_threshold()

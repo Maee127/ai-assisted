@@ -154,10 +154,11 @@ def build_result(
     *,
     label: ClassificationLabel,
     model_version: str,
+    confidence: float = 0.95,
 ) -> ClassificationResult:
     return ClassificationResult(
         label=label,
-        confidence=0.8,
+        confidence=confidence,
         reason="Classification evidence.",
         model_name="anthropic",
         model_version=model_version,

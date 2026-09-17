@@ -28,6 +28,7 @@ from lead_pipeline.processing.config import (
     get_interest_prompt_version,
     get_primary_classifier_model,
     get_primary_interest_extractor_model,
+    get_sales_lead_confidence_threshold,
     get_stronger_classifier_model,
     get_stronger_interest_extractor_model,
 )
@@ -64,6 +65,7 @@ def create_classification_runtime() -> ClassificationRuntime:
     stronger_model = get_stronger_classifier_model()
     prompt_version = get_classification_prompt_version()
     max_tokens = get_classification_max_tokens()
+    sales_lead_threshold = get_sales_lead_confidence_threshold()
 
     engine = create_engine(
         database_url,
@@ -92,6 +94,7 @@ def create_classification_runtime() -> ClassificationRuntime:
         primary_provider=primary_provider,
         stronger_provider=stronger_provider,
         clock=_utc_now,
+        sales_lead_confidence_threshold=sales_lead_threshold,
     )
     primary_interest_provider = AnthropicInterestExtractionProvider(
         client=client,

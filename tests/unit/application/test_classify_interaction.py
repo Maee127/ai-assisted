@@ -78,6 +78,8 @@ def build_result(
 def build_use_case(
     primary_result: ClassificationResult,
     stronger_result: ClassificationResult,
+    *,
+    threshold: float = 0.9,
 ) -> tuple[
     ClassifyInteraction,
     RecordingClassificationProvider,
@@ -93,6 +95,7 @@ def build_use_case(
         primary_provider=primary_provider,
         stronger_provider=stronger_provider,
         clock=lambda: CREATED_AT,
+        sales_lead_confidence_threshold=threshold,
     )
 
     return use_case, primary_provider, stronger_provider
@@ -281,3 +284,107 @@ def test_cross_client_catalogue_context_is_rejected_before_classification() -> N
 
     assert primary_provider.calls == []
     assert stronger_provider.calls == []
+
+
+def test_sales_lead_at_promotion_threshold_is_accepted() -> None:
+    primary_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="primary-classifier",
+        confidence=0.9,
+    )
+    stronger_result = build_result(
+        ClassificationLabel.CUSTOMER_CARE,
+        model_name="stronger-classifier",
+    )
+    use_case, _, stronger_provider = build_use_case(
+        primary_result,
+        stronger_result,
+        threshold=0.9,
+    )
+
+    outcome = use_case.execute(build_interaction())
+
+    assert outcome.final_result is primary_result
+    assert outcome.was_escalated is False
+    assert stronger_provider.calls == []
+
+
+def test_low_confidence_primary_sales_lead_is_escalated() -> None:
+    primary_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="primary-classifier",
+        confidence=0.89,
+    )
+    stronger_result = build_result(
+        ClassificationLabel.CUSTOMER_CARE,
+        model_name="stronger-classifier",
+        confidence=0.95,
+    )
+    use_case, _, stronger_provider = build_use_case(
+        primary_result,
+        stronger_result,
+        threshold=0.9,
+    )
+    interaction = build_interaction()
+
+    outcome = use_case.execute(interaction)
+
+    assert outcome.primary_result.label is ClassificationLabel.UNCERTAIN
+    assert outcome.primary_result.confidence == 0.89
+    assert outcome.primary_result.model_name == primary_result.model_name
+    assert outcome.final_result is stronger_result
+    assert outcome.was_escalated is True
+    assert stronger_provider.calls == [interaction]
+
+
+def test_low_confidence_stronger_sales_lead_remains_unresolved() -> None:
+    primary_result = build_result(
+        ClassificationLabel.UNCERTAIN,
+        model_name="primary-classifier",
+        confidence=0.4,
+    )
+    stronger_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="stronger-classifier",
+        confidence=0.89,
+    )
+    use_case, _, _ = build_use_case(
+        primary_result,
+        stronger_result,
+        threshold=0.9,
+    )
+
+    outcome = use_case.execute(build_interaction())
+
+    assert outcome.stronger_result is not None
+    assert outcome.stronger_result.label is ClassificationLabel.UNCERTAIN
+    assert outcome.stronger_result.confidence == 0.89
+    assert outcome.final_result is outcome.stronger_result
+    assert outcome.is_unresolved is True
+
+
+@pytest.mark.parametrize(
+    "threshold",
+    [-0.01, 1.01, float("nan"), float("inf")],
+)
+def test_invalid_sales_lead_confidence_threshold_is_rejected(
+    threshold: float,
+) -> None:
+    primary_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="primary-classifier",
+    )
+    stronger_result = build_result(
+        ClassificationLabel.SALES_LEAD,
+        model_name="stronger-classifier",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=("sales_lead_confidence_threshold must be between 0.0 and 1.0"),
+    ):
+        build_use_case(
+            primary_result,
+            stronger_result,
+            threshold=threshold,
+        )

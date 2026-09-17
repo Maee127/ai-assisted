@@ -6,6 +6,7 @@ DEFAULT_PRIMARY_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_STRONGER_CLASSIFIER_MODEL = "claude-sonnet-5"
 DEFAULT_CLASSIFICATION_PROMPT_VERSION = "classification-v1"
 DEFAULT_CLASSIFICATION_MAX_TOKENS = 256
+DEFAULT_SALES_LEAD_CONFIDENCE_THRESHOLD = 0.9
 
 DEFAULT_PRIMARY_INTEREST_EXTRACTOR_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_STRONGER_INTEREST_EXTRACTOR_MODEL = "claude-sonnet-5"
@@ -60,6 +61,26 @@ def _get_positive_integer(
     return value
 
 
+def _get_probability(
+    name: str,
+    default: float,
+) -> float:
+    configured_value = os.environ.get(
+        name,
+        str(default),
+    ).strip()
+
+    try:
+        value = float(configured_value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number between 0.0 and 1.0") from error
+
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"{name} must be a number between 0.0 and 1.0")
+
+    return value
+
+
 def get_anthropic_api_key() -> str:
     """Return the required Anthropic API key."""
 
@@ -102,6 +123,15 @@ def get_classification_max_tokens() -> int:
     )
 
 
+def get_sales_lead_confidence_threshold() -> float:
+    """Return the minimum confidence required to promote a sales lead."""
+
+    return _get_probability(
+        "SALES_LEAD_CONFIDENCE_THRESHOLD",
+        DEFAULT_SALES_LEAD_CONFIDENCE_THRESHOLD,
+    )
+
+
 def get_primary_interest_extractor_model() -> str:
     """Return the configured economical primary interest extractor."""
 
@@ -141,20 +171,7 @@ def get_interest_max_tokens() -> int:
 def get_inferred_interest_confidence_threshold() -> float:
     """Return the confirmation threshold for inferred interests."""
 
-    environment_name = "INFERRED_INTEREST_CONFIDENCE_THRESHOLD"
-    configured_value = os.environ.get(
-        environment_name,
-        str(DEFAULT_INFERRED_INTEREST_CONFIDENCE_THRESHOLD),
-    ).strip()
-
-    try:
-        threshold = float(configured_value)
-    except ValueError as error:
-        raise ValueError(
-            f"{environment_name} must be a number between 0.0 and 1.0"
-        ) from error
-
-    if not 0.0 <= threshold <= 1.0:
-        raise ValueError(f"{environment_name} must be a number between 0.0 and 1.0")
-
-    return threshold
+    return _get_probability(
+        "INFERRED_INTEREST_CONFIDENCE_THRESHOLD",
+        DEFAULT_INFERRED_INTEREST_CONFIDENCE_THRESHOLD,
+    )

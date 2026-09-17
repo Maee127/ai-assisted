@@ -49,6 +49,10 @@ def configure_environment(
         "INFERRED_INTEREST_CONFIDENCE_THRESHOLD",
         "0.82",
     )
+    monkeypatch.setenv(
+        "SALES_LEAD_CONFIDENCE_THRESHOLD",
+        "0.94",
+    )
 
 
 def test_create_runtime_composes_configured_classification_runner(
@@ -124,6 +128,7 @@ def test_create_runtime_composes_configured_classification_runner(
         stronger_interest_provider,
         AnthropicInterestExtractionProvider,
     )
+    assert runtime.runner.classifier.sales_lead_confidence_threshold == 0.94
     assert primary_interest_provider.client is anthropic_client
     assert stronger_interest_provider.client is anthropic_client
     assert primary_interest_provider.model == "primary-interest-model"

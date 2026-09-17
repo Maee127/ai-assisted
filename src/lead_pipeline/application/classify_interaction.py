@@ -36,11 +36,18 @@ class ClassificationOutcome:
 
 @dataclass(slots=True)
 class ClassifyInteraction:
-    """Classify every interaction and escalate explicit uncertainty."""
+    """Classify interactions and gate sales-lead promotion by confidence."""
 
     primary_provider: ClassificationProvider
     stronger_provider: ClassificationProvider
     clock: Callable[[], datetime]
+    sales_lead_confidence_threshold: float = 0.9
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.sales_lead_confidence_threshold <= 1.0:
+            raise ValueError(
+                "sales_lead_confidence_threshold must be between 0.0 and 1.0"
+            )
 
     def execute(
         self,
@@ -60,9 +67,11 @@ class ClassifyInteraction:
         if context.client_id != interaction.client_id:
             raise ValueError("catalogue context must belong to the interaction client")
 
-        primary_result = self.primary_provider.classify(
-            interaction,
-            catalogue_context=context,
+        primary_result = self._apply_sales_lead_promotion_gate(
+            self.primary_provider.classify(
+                interaction,
+                catalogue_context=context,
+            )
         )
 
         if primary_result.label is not ClassificationLabel.UNCERTAIN:
@@ -71,9 +80,11 @@ class ClassifyInteraction:
                 final_result=primary_result,
             )
 
-        stronger_result = self.stronger_provider.classify(
-            interaction,
-            catalogue_context=context,
+        stronger_result = self._apply_sales_lead_promotion_gate(
+            self.stronger_provider.classify(
+                interaction,
+                catalogue_context=context,
+            )
         )
 
         if stronger_result.label is not ClassificationLabel.UNCERTAIN:
@@ -97,4 +108,23 @@ class ClassifyInteraction:
             stronger_result=stronger_result,
             final_result=stronger_result,
             unresolved_record=unresolved_record,
+        )
+
+    def _apply_sales_lead_promotion_gate(
+        self,
+        result: ClassificationResult,
+    ) -> ClassificationResult:
+        if (
+            result.label is not ClassificationLabel.SALES_LEAD
+            or result.confidence >= self.sales_lead_confidence_threshold
+        ):
+            return result
+
+        return ClassificationResult(
+            label=ClassificationLabel.UNCERTAIN,
+            confidence=result.confidence,
+            reason="Sales-lead confidence is below the promotion threshold.",
+            model_name=result.model_name,
+            model_version=result.model_version,
+            prompt_version=result.prompt_version,
         )
